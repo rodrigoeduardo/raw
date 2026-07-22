@@ -69,7 +69,10 @@ your-repo/
 ├── .github/
 │   ├── ISSUE_TEMPLATE/task.md       # board task template
 │   ├── pull_request_template.md
-│   └── workflows/pr-merged-cleanup.yml  # strips status:in-review on merge
+│   └── workflows/
+│       ├── pr-merged-cleanup.yml   # strips status:in-review on merge
+│       └── raw-update-check.yml    # weekly: opens an issue if a newer raw is out
+├── .raw-manifest.json                # per-file hash + version — powers `raw update`
 └── docs/
     ├── specs/                       # skeleton spec templates (planner input)
     └── workflow/                    # board-protocol, git-conventions, review-policy
@@ -93,11 +96,27 @@ your-repo/
 ## CLI
 
 ```bash
-npx github:rodrigoeduardo/raw init [dir] [--force] [--labels]  # install (idempotent; --force overwrites)
-npx github:rodrigoeduardo/raw labels                           # create workflow labels via gh
+npx github:rodrigoeduardo/raw init [dir] [--force] [--labels]      # install (idempotent; --force overwrites)
+npx github:rodrigoeduardo/raw update [dir] [--force] [--dry-run]  # pull in upstream changes
+npx github:rodrigoeduardo/raw manifest bootstrap [dir]            # enable update tracking on a pre-existing install
+npx github:rodrigoeduardo/raw labels                               # create workflow labels via gh
 ```
 
 CI is yours to bring — the workflow only assumes PRs have checks and the merge gate wants them green. See [`examples/ci-node-supabase.yml`](examples/ci-node-supabase.yml) for a real one.
+
+## Staying up to date
+
+`raw init` writes `.raw-manifest.json` — the installed version plus a content hash of every installed file. `raw update`:
+
+- upgrades any file you haven't touched since install,
+- skips (and tells you about) any file you've edited, so your customizations are never silently clobbered — pass `--force` if you want the upstream version anyway,
+- always refreshes the managed block in `CLAUDE.md` (marked by `<!-- BEGIN/END:raw-workflow -->`, since that block is never meant to be hand-edited).
+
+`--dry-run` shows exactly this plan without touching anything.
+
+**Getting notified.** `raw-update-check.yml` (installed by default) runs weekly and opens a `status:proposed`-free, `auto:hold`-labeled issue when the repo's raw version falls behind `main` on this repo — so your board's planner/autopilot never picks it up as work, but you see it. It's pull-based (the target repo checks, nothing pushes to it); there's no hosted registry.
+
+An install done before this existed has no `.raw-manifest.json` yet — run `raw manifest bootstrap` once (baselines current files as "unmodified," so hand-edits made before that point won't be flagged) and `update` works from then on.
 
 Design rationale and edge-case table: [`docs/design.md`](docs/design.md).
 

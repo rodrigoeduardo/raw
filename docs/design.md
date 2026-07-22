@@ -48,6 +48,15 @@ Escape hatches at every stage: `status:blocked` (+ precise comment), `TOO_BIG` (
 | Pending Human actions | Issue unclaimable regardless of `status:ready` until checked off |
 | Fix loop doesn't converge | `max_fix_cycles` cap → `status:blocked`, PR left for a human |
 
+## Staying up to date
+
+Installs are plain copied files, not a managed dependency, so raw tracks drift itself instead of assuming a package manager:
+
+- `raw init` writes `.raw-manifest.json`: the installed version plus a sha256 of every installed file as copied.
+- `raw update` recomputes hashes, compares each file to the manifest baseline, and only overwrites files that are unchanged since install — anything a human edited is reported and skipped (`--force` to overwrite anyway). `CLAUDE.md`'s managed block is always refreshed; it's marked, never meant to be hand-edited.
+- Notification is pull-based, not pushed: `raw-update-check.yml` runs on a schedule in the *target* repo, diffs its manifest version against raw's `main`, and opens an `auto:hold` issue if behind. No hosted registry, no telemetry back to this repo.
+- Pre-manifest installs bootstrap via `raw manifest bootstrap`, which baselines whatever's on disk as "unmodified" — any edits made before that point are invisible to future diffs.
+
 ## History
 
 The original design had two hard-coded human gates (task approval, merge click) and a separate `auto-next-task` skill that deliberately broke the merge gate with a documented divergence note. The extraction replaced that with the config gate layer: `/autopilot` is the one orchestrator, and how far it goes (merge? deploy?) is a per-repo setting instead of a rule-break.

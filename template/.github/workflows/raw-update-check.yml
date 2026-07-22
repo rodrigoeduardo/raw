@@ -1,0 +1,46 @@
+name: raw workflow update check
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # weekly, Monday 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Compare installed raw version to latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ ! -f .raw-manifest.json ]; then
+            echo "No .raw-manifest.json — install raw via 'npx github:rodrigoeduardo/raw init' (or 'manifest bootstrap' for a pre-existing install) to enable update checks."
+            exit 0
+          fi
+
+          INSTALLED=$(node -e "console.log(require('./.raw-manifest.json').version)")
+          LATEST=$(curl -fsSL https://raw.githubusercontent.com/rodrigoeduardo/raw/main/package.json | node -e "console.log(JSON.parse(require('fs').readFileSync(0,'utf8')).version)")
+          echo "installed=$INSTALLED latest=$LATEST"
+
+          if [ "$INSTALLED" = "$LATEST" ]; then
+            echo "Up to date."
+            exit 0
+          fi
+
+          EXISTING=$(gh issue list --search "raw workflow update available in:title" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "Update issue #$EXISTING already open."
+            exit 0
+          fi
+
+          gh issue create \
+            --title "raw workflow update available ($INSTALLED -> $LATEST)" \
+            --body "Installed raw workflow version is \`$INSTALLED\`; latest is \`$LATEST\`.
+
+Run \`npx github:rodrigoeduardo/raw update\` (add \`--dry-run\` first to preview). Files you've edited locally are skipped by default, not overwritten." \
+            --label "auto:hold"
