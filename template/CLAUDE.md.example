@@ -1,7 +1,7 @@
 <!-- BEGIN:raw-workflow -->
 ## Agentic workflow (raw)
 
-Development is driven by an agentic kanban workflow on GitHub Issues.
+Development is driven by an agentic workflow on GitHub Issues.
 
 - **Config**: `raw.config.yml` — gates, commands, labels. Run `/configure` to change it.
 - **Any task**: read the relevant specs under `docs/specs/` first. Business rules are the source of truth.
