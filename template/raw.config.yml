@@ -1,0 +1,49 @@
+# raw.config.yml — workflow configuration
+# Read by every raw skill at the start of a run. Edit by hand or run /configure.
+# Every key has a safe default (shown here); a missing file means "all defaults".
+
+# Human gates. Each is "human" (a person performs/authorizes the step) or "auto"
+# (agents may perform it). Defaults are the safe ones: everything human.
+gates:
+  # Who promotes issues from status:proposed to status:ready (makes them claimable).
+  promote: human
+  # Who clicks merge on an approved, green PR. "auto" lets /autopilot merge.
+  merge: human
+  # Who triggers a deploy after merges. Only meaningful if commands.deploy is set.
+  deploy: human
+
+# Project commands agents run. Fill these for your stack.
+# Unset commands are skipped (agents will note the skip, never guess a command).
+commands:
+  install: # e.g. npm ci
+  lint: # e.g. npm run lint
+  test: # e.g. npm test
+  test_all: # full suite incl. integration, e.g. npm run test:all
+  deploy: # e.g. npm run deploy — leave unset if CD deploys main automatically
+
+# Domain area labels (area:*) used on issues. Define your own; these are examples.
+# /configure can create them on GitHub for you.
+labels:
+  areas: []
+  # EXAMPLE:
+  # areas: [setup, database, auth, billing, notifications]
+
+# Where the planner (/plan-board) reads specs from.
+specs_dir: docs/specs
+
+# Sub-skill bindings — which skill fulfills each role. Swap freely if you use a
+# different TDD/verification skill; raw skills invoke roles, not hardcoded names.
+bindings:
+  tdd: superpowers:test-driven-development
+  verification: superpowers:verification-before-completion
+
+# /autopilot orchestrator tuning.
+autopilot:
+  # Max executors running concurrently (1 = sequential).
+  parallel: 1
+  # Review→fix rounds per PR before the issue is marked status:blocked.
+  max_fix_cycles: 3
+  # Optional GitHub Projects v2 board to add created issues to. Leave unset to skip.
+  project:
+    owner: # e.g. your-github-username
+    number: # e.g. 2

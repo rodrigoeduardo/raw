@@ -1,0 +1,19 @@
+{
+  "name": "raw-workflow",
+  "version": "0.1.0",
+  "description": "Installable agentic kanban workflow for Claude Code — plan, build, review, merge, deploy with configurable human gates",
+  "type": "module",
+  "bin": {
+    "raw": "bin/cli.mjs"
+  },
+  "files": [
+    "bin",
+    "template",
+    "examples"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rodrigoeduardo/raw.git"
+  }
+}
