@@ -1,0 +1,41 @@
+# EXAMPLE — a CI workflow from a Next.js + Supabase project using this workflow.
+# Not installed by `raw init`. Write your own CI for your stack; the workflow only
+# assumes "PRs have checks and the merge gate requires them green".
+# The `integration` job runs against a disposable local Supabase stack (Docker via
+# the Supabase CLI) so concurrent CI runs can't interfere with each other.
+
+name: CI checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run test:integration:setup
+      - run: npm run test:integration

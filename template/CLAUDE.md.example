@@ -1,0 +1,20 @@
+<!-- BEGIN:raw-workflow -->
+## Agentic workflow (raw)
+
+Development is driven by an agentic kanban workflow on GitHub Issues.
+
+- **Config**: `raw.config.yml` — gates, commands, labels. Run `/configure` to change it.
+- **Any task**: read the relevant specs under `docs/specs/` first. Business rules are the source of truth.
+- **Anything touching the board** (issues, labels, claims, PRs): follow `docs/workflow/board-protocol.md` exactly.
+- **Git**: `docs/workflow/git-conventions.md` applies at all times — commit on the fly, atomic commits, Conventional Commits, never commit to the default branch.
+- **AI PR review semantics**: `docs/workflow/review-policy.md`.
+
+### Workflow skills
+
+- `/configure` — set up gates, labels, commands (writes `raw.config.yml`).
+- `/plan-board` — planner: decompose specs into proposed issues.
+- `/next-task` — builder: claim next ready issue, implement with TDD, deliver PR.
+- `/create-pr` — finalize a branch into a template-compliant PR (draft-first).
+- `/review-pr` — AI review of a PR, on request.
+- `/autopilot` — autonomous orchestrator: build → review → merge → deploy within configured gates.
+<!-- END:raw-workflow -->
