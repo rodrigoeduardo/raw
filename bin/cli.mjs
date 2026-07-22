@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// raw — installer for the agentic kanban workflow.
+// raw — installer for the agentic issue-board workflow.
 // Usage:
 //   npx github:rodrigoeduardo/raw init [target-dir] [--force] [--labels]
 //   npx github:rodrigoeduardo/raw labels
@@ -115,7 +115,7 @@ switch (cmd) {
     createLabels();
     break;
   default:
-    console.log(`raw — installable agentic kanban workflow
+    console.log(`raw — installable agentic issue-board workflow
 
 Commands:
   init [dir] [--force] [--labels]   Install workflow files into a repo (default: cwd)

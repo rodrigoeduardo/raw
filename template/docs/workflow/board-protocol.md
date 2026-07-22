@@ -1,8 +1,8 @@
 # Board Protocol
 
-Single source of truth for how agents interact with the kanban board. The board is GitHub Issues on this repo (derive owner/repo at runtime: `gh repo view --json owner,name`), optionally mirrored in a Projects v2 view.
+Single source of truth for how agents interact with the board. The board is GitHub Issues on this repo (derive owner/repo at runtime: `gh repo view --json owner,name`) — nothing more.
 
-**Issue labels are the machine source of truth.** Any Projects v2 board is a human-facing view; card positions are cosmetic — labels win.
+**Issue labels are the machine source of truth.** Any visual view a human sets up on top (e.g. a Projects board) is cosmetic and outside this workflow — labels win.
 
 Workflow configuration (gates, labels, commands) lives in `raw.config.yml` at the repo root. Missing file or key = the defaults documented there (all gates `human`).
 

@@ -27,8 +27,7 @@ labels. Idempotent: re-runs load current values and offer them as defaults.
    4. **Specs dir** — default `docs/specs`.
    5. **Bindings** — keep `superpowers:*` defaults, or name replacement skills for the `tdd` and
       `verification` roles.
-   6. **Autopilot** — `parallel` (1–3), `max_fix_cycles`, optional Projects v2 board
-      (owner + number).
+   6. **Autopilot** — `parallel` (1–3), `max_fix_cycles`.
 
 3. **Write `raw.config.yml`.** Preserve the comment structure of the shipped template (comments are
    the config's documentation). Show the resulting file to the human.

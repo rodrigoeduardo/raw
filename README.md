@@ -1,6 +1,6 @@
 # raw
 
-An installable agentic kanban workflow for Claude Code: an AI planner proposes tasks to a GitHub Issues board, AI builders pull them and deliver PRs, an AI reviewer checks the diffs — and **you decide which gates stay human**.
+An installable agentic workflow for Claude Code, driven entirely by GitHub Issues: an AI planner proposes tasks as issues, AI builders pull them and deliver PRs, an AI reviewer checks the diffs — and **you decide which gates stay human**.
 
 Everything is a plain file copied into your repo: skills, agent definitions, issue/PR templates, workflow docs, one config file. Small, hackable, no framework. Labels on GitHub Issues are the machine source of truth, so every state transition is auditable and any crashed agent can pick up where things left off.
 
@@ -89,7 +89,6 @@ your-repo/
 | `bindings.tdd` / `bindings.verification` | superpowers skills | Which skill fulfills each role — swappable |
 | `autopilot.parallel` | `1` | Concurrent executors (each in its own worktree) |
 | `autopilot.max_fix_cycles` | `3` | Review→fix rounds before `status:blocked` |
-| `autopilot.project` | unset | Optional Projects v2 board to add issues to |
 
 ## CLI
 

@@ -1,6 +1,6 @@
 ---
 name: plan-board
-description: Use when the user wants to populate or refresh the kanban board from specs — decomposing specs into GitHub issues, planning tasks, proposing follow-ups from PR notes, or reconciling the board after spec changes.
+description: Use when the user wants to populate or refresh the board from specs — decomposing specs into GitHub issues, planning tasks, proposing follow-ups from PR notes, or reconciling the board after spec changes.
 ---
 
 # Plan Board (planner)
@@ -42,12 +42,6 @@ Decompose the specs (`raw.config.yml` → `specs_dir`, default `docs/specs/`) in
    Body must contain every template section: Goal, Pre-requisites (`Depends on #N` one per line), Requirements, Human actions, Out of scope, References.
 
    Add `--label "human-action-needed"` whenever the issue's "Human actions" section is anything other than "None" (see board-protocol.md). The human removes the label once those steps are done.
-
-   If `autopilot.project` is set in `raw.config.yml`, add each created issue to the board:
-
-   ```bash
-   gh project item-add <project.number> --owner <project.owner> --url <issue-url>
-   ```
 
 6. Commit the draft file.
 

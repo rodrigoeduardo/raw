@@ -4,11 +4,11 @@
 
 ## Problem
 
-AI agents are good at building small, well-specified tasks and bad at deciding what to build, when to stop, and when a human must look. raw is a reusable workflow in which an AI planner proposes tasks to a kanban board and AI builders pull tasks from it — on demand or autonomously — with **explicit, configurable human control points**.
+AI agents are good at building small, well-specified tasks and bad at deciding what to build, when to stop, and when a human must look. raw is a reusable workflow in which an AI planner proposes tasks as GitHub Issues and AI builders pull tasks from that board — on demand or autonomously — with **explicit, configurable human control points**.
 
 ## Core ideas
 
-1. **GitHub Issues are the board; labels are the machine source of truth.** Any Projects v2 view is cosmetic. Every state transition is a label swap, auditable in the issue timeline, and re-derivable by a crashed/restarted agent.
+1. **GitHub Issues are the board; labels are the machine source of truth.** No visual board tooling is part of the workflow — every state transition is a label swap, auditable in the issue timeline, and re-derivable by a crashed/restarted agent.
 2. **Gates are configuration, not doctrine.** Three gates — promote (`proposed → ready`), merge, deploy — each set to `human` or `auto` in `raw.config.yml`. Defaults are all-human; turning a gate to `auto` is an explicit, versioned decision in the target repo.
 3. **Skills are small and self-contained.** `/plan-board`, `/next-task`, `/create-pr`, `/review-pr` each work when invoked directly by a human. The orchestrator (`/autopilot`) composes them via sub-agents; orchestrator-only plumbing (status lines, delta re-reviews) lives in the agent definitions, never in the skills.
 4. **Specs drive planning; issues drive building; the diff drives review.** The planner reads `specs_dir` and proposes; builders implement exactly the issue's Requirements checklist; reviewers verify claims against the actual diff, never the PR body's assertions.

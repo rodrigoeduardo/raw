@@ -1,7 +1,7 @@
 {
   "name": "raw-workflow",
   "version": "0.1.0",
-  "description": "Installable agentic kanban workflow for Claude Code — plan, build, review, merge, deploy with configurable human gates",
+  "description": "Installable agentic workflow for Claude Code, driven by GitHub Issues — plan, build, review, merge, deploy with configurable human gates",
   "type": "module",
   "bin": {
     "raw": "bin/cli.mjs"

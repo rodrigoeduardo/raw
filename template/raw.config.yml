@@ -43,7 +43,3 @@ autopilot:
   parallel: 1
   # Review→fix rounds per PR before the issue is marked status:blocked.
   max_fix_cycles: 3
-  # Optional GitHub Projects v2 board to add created issues to. Leave unset to skip.
-  project:
-    owner: # e.g. your-github-username
-    number: # e.g. 2
