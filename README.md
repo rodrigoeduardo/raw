@@ -6,6 +6,15 @@ Everything is a plain file copied into your repo: skills, agent definitions, iss
 
 The other moving parts swap one config key at a time: worktree provider, executor and reviewer runners (Claude or Codex, per role), the TDD and verification skills, the screenshot driver, an optional second reviewer from another model family. See [Pluggability](#pluggability) for the full table. PRs stay on GitHub under every tracker.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/raw-workflow-dark.svg">
+    <img alt="raw workflow: docs/specs feeds /plan-board, which files issues as status:proposed on the tracker. The promote gate moves them to ready; /next-task claims and builds one, /create-pr opens the PR, /review-pr checks it against the acceptance criteria, findings are reconciled and looped back as fixes, then the merge and deploy gates run and a run summary feeds new proposals back to the planner. Every box reads and writes the same tracker, and /autopilot spans the promote-to-deploy section." src="docs/assets/raw-workflow-light.svg" width="100%">
+  </picture>
+</p>
+
+Every solid box is a skill you can invoke on its own; the dashed box is `/autopilot` composing the same skills end to end. Nothing is passed between them in chat — each one reads its state from the tracker and writes the result back. Source: [`docs/assets/raw-workflow.excalidraw`](docs/assets/raw-workflow.excalidraw).
+
 ## Quickstart (2-minute setup)
 
 1. Install into your repo (copies files; skips anything that already exists):
