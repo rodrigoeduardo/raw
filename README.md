@@ -87,7 +87,7 @@ Defaults are GitHub Issues + Claude Code worktrees + Claude runners, and if that
 | Worktrees | `worktrees.provider` | `claude` (default) · `orca` (terminal-driven, needed for non-Claude CLIs) · `conductor` (experimental guidance) |
 | Runners | `runners.executor` / `.reviewer` | `claude` (model + effort) · `codex` (self-contained prompt file, headless `codex exec`) |
 | Second opinion | `runners.adversarial_reviewer` | off by default; a reviewer from another model family, comments only — raw's reviewer keeps the verdict |
-| Evidence | `evidence.ui_screenshot` | `auto` (default) · `required` · `off` |
+| Evidence | `evidence.ui_screenshot` · `evidence.driver` | gate: `auto` (default) · `required` · `off` — capture: `playwright` (default, MCP or `npx`) · `manual` |
 
 **PRs are always GitHub**, so `ai-review:*` labels and the review policy are identical under every tracker.
 
@@ -136,6 +136,7 @@ your-repo/
 | `runners.adversarial_reviewer` | unset | Optional second reviewer from another model family — comments only |
 | `runners.codex_command` | `codex exec` | Headless invocation template for the codex runner |
 | `evidence.ui_screenshot` | `auto` | Screenshot evidence for user-visible work (`auto` \| `required` \| `off`) |
+| `evidence.driver` | `playwright` | How the screenshot is captured (`playwright` \| `manual`) |
 
 ## CLI
 

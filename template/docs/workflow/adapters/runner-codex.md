@@ -35,8 +35,11 @@ The prompt file contains:
    >    sections: Summary (with `Closes #N`), Changes, Requirements coverage (each criterion with
    >    evidence), Testing instructions, Human actions needed, Notes. Mark it ready only when every
    >    criterion is covered.
-   > 6. [when the evidence gate is active] Run the app with `<commands.dev>`, drive the flow,
-   >    attach a screenshot to the PR. No `commands.dev` → stop and report BLOCKED.
+   > 6. [when the evidence gate is active] Run the app with `<commands.dev>`, take the URL it
+   >    prints, drive the flow with Playwright (`npx playwright`), then commit the screenshot as
+   >    `docs/evidence/<issue#>-<slug>.png` and link it from Requirements coverage
+   >    (`![evidence](docs/evidence/<file>.png)`). No `commands.dev`, no URL, or no Playwright →
+   >    stop and report BLOCKED with that reason.
    > 7. **Do not merge.** Stop once the PR is open and its checks are green (or your fix is pushed
    >    and the run is pending).
    > 8. Print exactly one final status line: `DONE pr=#<n> branch=<name>` /
