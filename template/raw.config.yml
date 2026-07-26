@@ -75,6 +75,10 @@ worktrees:
 runners:
   executor: { runner: claude, model: sonnet, effort: medium } # runner: claude | codex
   reviewer: { runner: claude, model: sonnet, effort: medium }
+  # Drives one PR to merge-ready. Opus by default because it decides whether a
+  # review finding actually reproduces — the judgement call the whole fix loop
+  # hangs on. Downgrading this saves little and costs wrong fix rounds.
+  babysitter: { runner: claude, model: opus, effort: medium }
   # Optional second reviewer from another model family, for decorrelated errors.
   # Its findings are comments only — raw's reviewer still owns the verdict label.
   # e.g. { runner: codex, model: gpt-5.6-codex, effort: medium }
