@@ -42,9 +42,12 @@ orchestrator claimed it).
    finalizes via `create-pr`, and relabels the issue `status:in-review`.
 2. Do not expand scope beyond the issue's Requirements checklist. Follow-ups go in PR Notes.
 3. **Evidence gate** — when it's active for this issue (`evidence.ui_screenshot`; see
-   `docs/workflow/review-policy.md`), the PR is not deliverable without the screenshot artifact:
-   run the app via `commands.dev`, drive the real flow, attach the image. `commands.dev` unset →
-   report `BLOCKED` with that reason. Never hand off a gated issue with the gate skipped.
+   `docs/workflow/review-policy.md`), the PR is not deliverable without the screenshot artifact.
+   Follow `docs/workflow/adapters/evidence-playwright.md` (the default `evidence.driver`): run the
+   app via `commands.dev`, drive the real flow with Playwright, and commit the image to
+   `docs/evidence/<issue#>-<slug>.png` as its own `chore(evidence): …` commit, linked from
+   Requirements coverage. Report `BLOCKED` with the adapter doc's exact reason when the app can't be
+   run, no URL appears, or no driver is available. Never hand off a gated issue with the gate skipped.
 4. If the issue turns out blocked or too big, follow `next-task`'s blocked/too-big handling
    (label + comment) and report it — do not force a half-finished PR.
 

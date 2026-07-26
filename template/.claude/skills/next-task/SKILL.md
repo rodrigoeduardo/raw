@@ -37,7 +37,7 @@ Claim one ready board issue, build it with TDD, deliver a PR. **One task per inv
 
 5. **Deliver.**
    - **REQUIRED SUB-SKILL:** the verification skill bound in `raw.config.yml` (`bindings.verification`, default `superpowers:verification-before-completion`). Run the configured `commands.lint` and `commands.test_all` — green before handoff.
-   - **Evidence gate** (`evidence.ui_screenshot`, default `auto` — see review-policy.md). Active when the issue says `**User-visible:** yes` or carries a UI-ish `area:*` label (`auto`), or always (`required`). Then: start the app with `commands.dev`, drive the actual flow, screenshot it, and attach the image under "Requirements coverage" in the PR. A passing test is not evidence that anything rendered. `commands.dev` unset while the gate is active → **BLOCKED** (label + comment), never a silent skip.
+   - **Evidence gate** (`evidence.ui_screenshot`, default `auto` — see review-policy.md). Active when the issue says `**User-visible:** yes` or carries a UI-ish `area:*` label (`auto`), or always (`required`). Capture follows `evidence.driver` — default `playwright`, full procedure in `docs/workflow/adapters/evidence-playwright.md`: start `commands.dev`, take the URL it prints, drive the flow (Playwright MCP, else `npx playwright`), commit the image to `docs/evidence/<issue#>-<slug>.png` and link it under "Requirements coverage". A passing test is not evidence that anything rendered. `commands.dev` unset, no URL, or no usable driver → **BLOCKED** (label + comment) with that reason, never a silent skip.
    - Use the `create-pr` skill to finalize (template, ready state).
    - `gh issue edit <n> --remove-label "status:in-progress" --add-label "status:in-review"`
    - Stop.

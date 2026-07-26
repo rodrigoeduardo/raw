@@ -24,7 +24,8 @@ Read `raw.config.yml` (missing file/keys = documented defaults). You care about:
 - `gates.deploy` (`human` default) + `commands.deploy`: whether/how you deploy after merges.
 - `autopilot.parallel` (default 1), `autopilot.max_fix_cycles` (default 3).
 - `tracker.provider` (default `github`), `worktrees.provider` (default `claude`), `runners.*`
-  (default claude/sonnet), `evidence.ui_screenshot` (default `auto`) + `commands.dev`.
+  (default claude/sonnet), `evidence.ui_screenshot` (default `auto`) + `evidence.driver` (default
+  `playwright`) + `commands.dev`.
 
 **Adapters.** Every board operation below is written in GitHub terms because that is the default.
 If `tracker.provider` is not `github`, read `docs/workflow/adapters/tracker-<provider>.md` first and
