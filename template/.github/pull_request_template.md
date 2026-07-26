@@ -13,7 +13,11 @@
 ## Requirements coverage
 
 <!-- Copy each acceptance criterion from the issue and check it off with evidence
-     (test name, screenshot, command output). -->
+     (test name, screenshot, command output). Evidence is an artifact someone other than the
+     author can inspect — "tests pass" is not evidence, the test name and its assertion is.
+     User-visible work: attach a screenshot of the real running app driving the real flow
+     (see the evidence gate in docs/workflow/review-policy.md) — a green test proves the logic
+     ran, not that anything rendered. -->
 
 - [ ]
 
