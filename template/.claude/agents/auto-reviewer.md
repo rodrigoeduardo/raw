@@ -29,13 +29,21 @@ last-reviewed commit for delta rounds).
    - `ai-review:approved` — every acceptance criterion met, no blocking findings, OR
    - `ai-review:changes-requested` — any blocking finding.
 2. Verify every "Requirements coverage" claim against the **actual diff** — evidence, not assertions.
+3. **Evidence gate** (see `docs/workflow/review-policy.md`): if it's active for this issue, open
+   `docs/evidence/<issue#>-<slug>.png` from the diff and check it actually shows the claimed
+   behavior before you set a verdict — you are the "someone besides the worker" the gate exists for.
+   Missing or unconvincing artifact → `ai-review:changes-requested`. The PNG itself is expected
+   output, not scope creep.
 
 **Delta re-review (fix cycle):** don't redo a from-scratch review.
 
 1. Diff only what changed since the last round: `git diff <last-reviewed-sha>..HEAD`.
 2. For each blocking finding from the previous round, confirm it's addressed in that diff.
-3. Skim the new commits for anything obviously wrong (not a full re-audit).
-4. Set the verdict the same way: `ai-review:approved` if every prior blocking finding is resolved
+3. Findings the orchestrator **rebutted** (verified against the code and answered on the thread) are
+   closed: treat them as addressed and do not re-raise them — unless the new diff gives you fresh
+   evidence they were real, in which case raise the finding *with* that evidence.
+4. Skim the new commits for anything obviously wrong (not a full re-audit).
+5. Set the verdict the same way: `ai-review:approved` if every prior blocking finding is resolved
    and nothing new is broken, else `ai-review:changes-requested` with the remaining/new findings
    posted as PR comments.
 

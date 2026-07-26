@@ -20,6 +20,8 @@ npx github:rodrigoeduardo/raw init
    - `/next-task` — build one task, get a PR, review and merge yourself, or
    - `/autopilot` — drain the whole board: build → review → merge → deploy, as far as your gates allow.
 
+   `/babysit-pr <PR#>` takes any single PR the rest of the way (CI triage → review findings → merge-ready) without running the board.
+
 Prerequisites: [`gh` CLI](https://cli.github.com/) authenticated, and the [superpowers](https://github.com/obra/superpowers) skills (or rebind `bindings:` in `raw.config.yml` to your own TDD/verification skills).
 
 You can also install just the skills with [skills.sh](https://skills.sh) (`npx skills add rodrigoeduardo/raw`) — but templates, the GitHub Action, and the workflow docs still need `raw init`.
@@ -31,6 +33,10 @@ You can also install just the skills with [skills.sh](https://skills.sh) (`npx s
 **The problem.** Point an agent at a vague goal and it invents scope. The expensive failure isn't bad code — it's a day of plausible code for a task nobody wanted.
 
 **The fix** is `/plan-board`. It decomposes your specs into small issues with *objectively checkable* acceptance criteria, drafts them for your approval first, and never files a duplicate. Builders are then hard-scoped to the issue's Requirements checklist — follow-up ideas go to the PR's Notes section, which the planner turns into future proposals. Scope creep has nowhere to live.
+
+The issue **is** the builder's prompt, so the planner follows explicit decomposition rules: no test-only tickets, migration and its usage in one ticket, no "foundation" tickets of functions nobody calls, one ticket = one reviewable PR (≲400 lines), dependencies only where a ticket states `Depends on #N`, and risky features born with an OFF-by-default flag so every PR can merge without changing behavior. The template asks for expected behavior, test scenarios, technical pointers and rollout/observability — the things a builder otherwise guesses at.
+
+And when a ticket fails twice, raw stops blaming the model: **two execution failures = spec defect**. Relaunching is forbidden; the issue goes back to `proposed` with a `needs rewrite:` comment for the planner.
 
 ### #2: Agent sessions don't know when to stop
 
@@ -44,17 +50,46 @@ You can also install just the skills with [skills.sh](https://skills.sh) (`npx s
 
 **The fix** is `/review-pr` plus label semantics you control. The reviewer verifies each acceptance criterion *against the actual diff* — not the PR body's claims — and posts one problem per comment. By default its verdict is advisory (you still read and merge). Apply `ai-review:final` and an approved verdict can stand in for your read. Either way the review never merges anything.
 
+Two things keep the review loop honest:
+
+- **Findings are reconciled before they become work.** A finding — from raw's reviewer, a review bot, or a human — is a claim about the code, and claims can be confidently wrong. The orchestrator opens the code and confirms each blocking finding reproduces; ones that don't get a reply with the evidence and cost you nothing. Forwarding a hallucinated finding buys a full implementation round fixing a bug that doesn't exist.
+- **Evidence beats assertion on user-visible work.** A green test proves the logic ran, not that anything rendered. When an issue is marked user-visible, the builder screenshots the real running app driving the real flow, and the **reviewer looks at it** before the verdict — the gate is "someone besides the worker looked", not "a screenshot exists". Headless repos never notice it.
+
+`/babysit-pr` runs the same per-PR procedure on a single PR when you don't want the whole board: CI triage (a cancelled run is not a failure), a feedback fingerprint so a comment arriving after green CI still blocks merge, reconciliation, fix, merge-ready.
+
 ### #4: "Fully autonomous" is a dial, not a switch
 
 **The problem.** Most autonomous-agent setups are all-or-nothing: either you babysit every step or you hand over the keys.
 
 **The fix** is `/autopilot` + the gate config. Three gates — **promote**, **merge**, **deploy** — each set to `human` or `auto` in `raw.config.yml` (all default `human`). Autopilot orchestrates executor and reviewer sub-agents, loops review→fix up to a cap, and goes exactly as far as your gates allow: with `merge: human` it parks approved+green PRs for your click; with everything `auto` it drains the board and deploys. `auto:hold` labels and an `AUTO-STOP` issue give you brakes at any granularity.
 
-### #5: Workflow config scattered across prompts
+It builds the dependency DAG from `Depends on #N` lines and prints a **wave table** (`| Wave | Issues | Unblocks |`) so you can see the critical path — but it *schedules* off the claimable frontier, re-derived from GitHub every pass. Batched waves are a snapshot; a snapshot is wrong the moment you edit the board mid-run or a session crashes.
+
+### #5: Handing off is where the context dies
+
+**The problem.** Autonomous runs end and leave you nothing but merged PRs — the follow-ups that only a human can do (backfills, flag flips, secrets, docs sync) are buried in PR bodies nobody re-opens.
+
+**The fix**: run summaries **surface, don't auto-do**. Every merged PR's "Human actions needed" section is harvested into the summary, alongside findings that were rebutted, threads escalated for your decision, issues sent back as spec defects, and the final wave table.
+
+### #6: Workflow config scattered across prompts
 
 **The problem.** The commands to run, the labels to use, which TDD skill to invoke — usually smeared across CLAUDE.md prose where agents half-remember them.
 
 **The fix** is one file, `raw.config.yml`, read by every skill, written by the `/configure` interview. Swap `superpowers:test-driven-development` for your own TDD skill by editing one line — skills invoke *roles* (`bindings.tdd`), not hardcoded names.
+
+## Pluggability
+
+Defaults are GitHub Issues + Claude Code worktrees + Claude runners, and if that's your stack you can stop reading — the default path is inline in the skills and costs nothing. Everything else is a config key plus one adapter doc under `docs/workflow/adapters/`; the skills' decision logic never changes with the provider, only the spelling of the operations.
+
+| Axis | Config | Options |
+|---|---|---|
+| Tracker | `tracker.provider` | `github` (default) · `linear` (native `blockedBy` relations, workflow-state mapping, via the Linear MCP server) |
+| Worktrees | `worktrees.provider` | `claude` (default) · `orca` (terminal-driven, needed for non-Claude CLIs) · `conductor` (experimental guidance) |
+| Runners | `runners.executor` / `.reviewer` | `claude` (model + effort) · `codex` (self-contained prompt file, headless `codex exec`) |
+| Second opinion | `runners.adversarial_reviewer` | off by default; a reviewer from another model family, comments only — raw's reviewer keeps the verdict |
+| Evidence | `evidence.ui_screenshot` · `evidence.driver` | gate: `auto` (default) · `required` · `off` — capture: `playwright` (default, MCP or `npx`) · `manual` |
+
+**PRs are always GitHub**, so `ai-review:*` labels and the review policy are identical under every tracker.
 
 ## What gets installed
 
@@ -63,7 +98,7 @@ your-repo/
 ├── raw.config.yml                    # gates, commands, labels, bindings
 ├── CLAUDE.md                         # raw section appended (markers, idempotent)
 ├── .claude/
-│   ├── skills/                      # autopilot, next-task, create-pr, review-pr, plan-board, configure
+│   ├── skills/                      # autopilot, next-task, create-pr, review-pr, babysit-pr, plan-board, configure
 │   ├── agents/                      # auto-executor, auto-reviewer
 │   └── settings.json                # worktree symlink config (Node default; edit for your stack)
 ├── .github/
@@ -75,7 +110,8 @@ your-repo/
 ├── .raw-manifest.json                # per-file hash + version — powers `raw update`
 └── docs/
     ├── specs/                       # skeleton spec templates (planner input)
-    └── workflow/                    # board-protocol, git-conventions, review-policy
+    └── workflow/                    # board-protocol, git-conventions, review-policy, pr-babysit
+        └── adapters/                # one doc per tracker / worktree / runner provider
 ```
 
 ## Config reference (`raw.config.yml`)
@@ -87,11 +123,20 @@ your-repo/
 | `gates.deploy` | `human` | Who triggers `commands.deploy` after a merge batch |
 | `commands.install/lint/test/test_all` | unset | Your stack's commands; unset = step skipped, never guessed |
 | `commands.deploy` | unset | Deploy command; unset = assume CD on the default branch |
+| `commands.dev` | unset | Run the app locally — required by the evidence gate |
 | `labels.areas` | `[]` | Domain `area:*` labels for issues |
 | `specs_dir` | `docs/specs` | Planner input tree |
 | `bindings.tdd` / `bindings.verification` | superpowers skills | Which skill fulfills each role — swappable |
 | `autopilot.parallel` | `1` | Concurrent executors (each in its own worktree) |
 | `autopilot.max_fix_cycles` | `3` | Review→fix rounds before `status:blocked` |
+| `tracker.provider` | `github` | Where the board lives (`github` \| `linear`) |
+| `tracker.linear.team` / `.states` | unset | Linear team key and raw-status → workflow-state map |
+| `worktrees.provider` | `claude` | Isolated workspace provider (`claude` \| `orca` \| `conductor`) |
+| `runners.executor` / `runners.reviewer` | `{ runner: claude, model: sonnet, effort: medium }` | Engine per role (`claude` \| `codex`) |
+| `runners.adversarial_reviewer` | unset | Optional second reviewer from another model family — comments only |
+| `runners.codex_command` | `codex exec` | Headless invocation template for the codex runner |
+| `evidence.ui_screenshot` | `auto` | Screenshot evidence for user-visible work (`auto` \| `required` \| `off`) |
+| `evidence.driver` | `playwright` | How the screenshot is captured (`playwright` \| `manual`) |
 
 ## CLI
 

@@ -1,10 +1,19 @@
 # Board Protocol
 
-Single source of truth for how agents interact with the board. The board is GitHub Issues on this repo (derive owner/repo at runtime: `gh repo view --json owner,name`) — nothing more.
+Single source of truth for how agents interact with the board.
 
-**Issue labels are the machine source of truth.** Any visual view a human sets up on top (e.g. a Projects board) is cosmetic and outside this workflow — labels win.
+**The tracker state is the machine source of truth.** Every state transition is a write to the tracker, auditable in the item's timeline and re-derivable by a crashed or restarted agent — never held in an agent's head or a run plan. Any visual view a human sets up on top is cosmetic; the tracker wins.
 
-Workflow configuration (gates, labels, commands) lives in `raw.config.yml` at the repo root. Missing file or key = the defaults documented there (all gates `human`).
+Which tracker, and what "state" means concretely, comes from `raw.config.yml` → `tracker.provider`:
+
+| Provider | State is | Adapter doc |
+|---|---|---|
+| `github` (default) | **issue labels** on this repo (derive owner/repo at runtime: `gh repo view --json owner,name`) | [`adapters/tracker-github.md`](adapters/tracker-github.md) |
+| `linear` | **workflow states** + labels on Linear issues | [`adapters/tracker-linear.md`](adapters/tracker-linear.md) |
+
+This document describes the protocol in GitHub terms, because that is the default and the concrete case; an adapter doc only says how each operation is spelled on its tracker. **PRs are always GitHub**, so `ai-review:*` labels and `review-policy.md` are the same under every tracker.
+
+Workflow configuration (gates, labels, commands) lives in `raw.config.yml` at the repo root. Missing file or key = the defaults documented there (all gates `human`, tracker `github`).
 
 ## Labels
 
@@ -64,6 +73,24 @@ A third, post-merge gate (`gates.deploy`) governs deploys — see the `autopilot
 4. **Build** — branch `type/<issue#>-<slug>`, TDD, commits on the fly (git-conventions.md), draft PR after first push.
 5. **Deliver** — `/create-pr` finalizes: PR marked ready with `Closes #N`, issue relabeled `status:in-review`.
 6. **Merge** — per the merge gate. Merge auto-closes the issue (done).
+
+## Two strikes = spec defect
+
+An issue that reaches `status:blocked` (or burns the review→fix cap) **twice** is a defective
+ticket, not a difficult one. The failure is in the issue body — ambiguous scope, acceptance
+criteria that can't be checked objectively, a missing decision — and relaunching it with a bigger
+model or more context just buys the same failure again.
+
+- **First failure**: normal handling — `status:blocked` + a comment saying exactly what is needed.
+  Relaunching after a human unblocks it is fine.
+- **Second failure**: relaunch is **forbidden**. Relabel `status:proposed` and comment
+  `needs rewrite: <what was ambiguous>`. `/plan-board` picks these up as rewrite proposals.
+
+Count only **execution** failures. A launch failure (worktree/CLI/auth error, agent never started,
+runner rejected a model flag) is infrastructure, not spec — relaunch freely, it isn't a strike.
+
+No label tracks this: the issue timeline is the memory. Count `status:blocked` events on the
+issue's timeline; a restarted orchestrator re-derives the same count.
 
 ## Rules for builders
 

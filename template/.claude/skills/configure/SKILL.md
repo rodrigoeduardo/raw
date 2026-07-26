@@ -21,13 +21,18 @@ labels. Idempotent: re-runs load current values and offer them as defaults.
 2. **Interview** (use AskUserQuestion; current/detected values as recommended options):
    1. **Gates** — `promote`, `merge`, `deploy`: human or auto each. Explain the consequence in one
       line per option (e.g. merge=auto → `/autopilot` merges approved+green PRs without you).
-   2. **Commands** — `install`, `lint`, `test`, `test_all`, `deploy`. Free-text via "Other" when
-      detection found nothing. `deploy` may stay unset (CD on default branch).
+   2. **Commands** — `install`, `lint`, `test`, `test_all`, `deploy`, `dev`. Free-text via "Other"
+      when detection found nothing. `deploy` may stay unset (CD on default branch). Ask for `dev`
+      (how to run the app locally) whenever the evidence gate can activate — i.e. unless
+      `evidence.ui_screenshot` is `off` — because a gated issue with no `commands.dev` blocks.
    3. **Area labels** — comma-separated list of domain areas (free text). Empty is allowed.
    4. **Specs dir** — default `docs/specs`.
    5. **Bindings** — keep `superpowers:*` defaults, or name replacement skills for the `tdd` and
       `verification` roles.
    6. **Autopilot** — `parallel` (1–3), `max_fix_cycles`.
+   7. **Advanced (offer, don't push)** — ask once: "configure pluggability (tracker, worktrees,
+      runners, evidence gate)?" Default answer is no; every default is raw's current behavior. If
+      yes, run the advanced interview below.
 
 3. **Write `raw.config.yml`.** Preserve the comment structure of the shipped template (comments are
    the config's documentation). Show the resulting file to the human.
@@ -52,8 +57,52 @@ labels. Idempotent: re-runs load current values and offer them as defaults.
 5. **Report.** Print what changed (config diff, labels created) and the next step: `/plan-board` to
    populate the board, then `/next-task` or `/autopilot`.
 
+## Advanced interview (pluggability)
+
+Only when the human opted in at step 2.7. Each block: **check the prerequisite first, then ask** —
+never offer a provider whose tooling isn't installed, and never write a config the session can't
+execute. Read the adapter doc for whatever gets selected before writing anything.
+
+1. **Tracker** (`tracker.provider`: `github` | `linear`) — `docs/workflow/adapters/`.
+   - Prerequisite for `linear`: the Linear MCP server is reachable in this session (try a cheap call
+     such as listing teams). Unreachable → say so and keep `github`.
+   - On `linear`: ask for the team key, then map each raw status to a real workflow state. Fetch the
+     team's actual states and offer them as options — do not free-text guess names. No "Blocked"
+     state → offer to create one, or fall back to the `raw:blocked` label (write that choice into
+     the config comment).
+   - Remind the human that `ai-review:*` labels stay on GitHub PRs regardless.
+2. **Worktrees** (`worktrees.provider`: `claude` | `orca` | `conductor`).
+   - Prerequisite: `command -v orca` / `command -v conductor`. Missing → not offered.
+   - `conductor` is **experimental** (guidance doc, unverified surface) — say so when offering it.
+3. **Runners** (`runners.executor`, `runners.reviewer`, `runners.adversarial_reviewer`).
+   - Prerequisite for `codex`: `command -v codex`. Missing → only `claude` is offered.
+   - Per role ask: runner, model, effort (`low|medium|high|xhigh|max`).
+   - `adversarial_reviewer` is opt-in and off by default; explain it in one line — a second reviewer
+     from another model family posts findings as PR comments for decorrelated errors, and raw's
+     reviewer still owns the verdict label.
+   - **Sync claude runner settings into the agent definitions**: after writing the config, update
+     `.claude/agents/auto-executor.md` and `.claude/agents/auto-reviewer.md` frontmatter (`model:`,
+     `effort:`) to match `runners.*`. The frontmatter is the fallback when nothing overrides it; a
+     config that disagrees with it is a silent lie.
+4. **Evidence gate** (`evidence.ui_screenshot`: `auto` | `required` | `off`).
+   - Explain `auto` in one line: required only for issues marked user-visible, inert for headless
+     repos. Recommend `auto`.
+   - If the answer is not `off` and `commands.dev` is unset, ask for it now (go back to the commands
+     block) — the gate BLOCKS issues when it can't run the app.
+   - Then ask **`evidence.driver`** (`playwright` | `manual`), unless `ui_screenshot` is `off`.
+     Recommend `playwright` — it's the documented, repeatable path
+     (`docs/workflow/adapters/evidence-playwright.md`); `manual` means the worker improvises, and is
+     for stacks Playwright can't drive.
+     Prerequisite check before recommending it: is the **Playwright MCP server** reachable in this
+     session, else does `npx playwright --version` work? Neither → say so plainly: the gate will
+     BLOCK gated issues until one exists. Let the human choose anyway (installing Playwright later
+     is normal) or pick `manual`; never silently downgrade the setting for them.
+
 ## Rules
 
 - Never overwrite `raw.config.yml` without showing the human the result (in-session diff is enough).
 - Never delete existing labels; only create missing ones.
 - Ask about decisions; detect facts. Don't ask what `package.json` already answers — confirm it.
+- Never write a provider into the config without checking its prerequisite first — an unreachable
+  MCP server or a missing CLI turns every later run into a launch failure.
+- Don't drag the human through the advanced interview by default. Defaults = today's behavior.
