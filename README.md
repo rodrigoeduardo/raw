@@ -1,8 +1,10 @@
 # raw
 
-An installable agentic workflow for Claude Code, driven entirely by GitHub Issues. An AI planner proposes tasks as issues, AI builders pull them and deliver PRs, an AI reviewer checks the diffs, and you decide which gates stay human.
+An installable agentic workflow for Claude Code, driven by your issue tracker. An AI planner proposes tasks as issues, AI builders pull them and deliver PRs, an AI reviewer checks the diffs, and you decide which gates stay human. GitHub Issues is the default; set `tracker.provider: linear` and the same skills run on Linear workflow states and `blockedBy` relations. Either way the tracker is the machine source of truth, so every state transition is auditable and any crashed agent can pick up where things left off.
 
-Everything is a plain file copied into your repo: skills, agent definitions, issue/PR templates, workflow docs, one config file. Small, hackable, no framework. Labels on GitHub Issues are the machine source of truth, so every state transition is auditable and any crashed agent can pick up where things left off.
+Everything is a plain file copied into your repo: skills, agent definitions, issue/PR templates, workflow docs, one config file. Small, hackable, no framework. Read a skill, disagree with it, rewrite it in place. `raw update` skips every file you've edited, so your version is the one that runs.
+
+The other moving parts swap one config key at a time: worktree provider, executor and reviewer runners (Claude or Codex, per role), the TDD and verification skills, the screenshot driver, an optional second reviewer from another model family. See [Pluggability](#pluggability) for the full table. PRs stay on GitHub under every tracker.
 
 ## Quickstart (2-minute setup)
 
