@@ -9,6 +9,8 @@ Claim one ready board issue, build it with TDD, deliver a PR. **One task per inv
 
 **REQUIRED READING:** `docs/workflow/board-protocol.md` and `docs/workflow/git-conventions.md`. Follow both exactly. Read `raw.config.yml` for commands and bindings (missing file = documented defaults).
 
+**Adapters.** The board commands below are the `tracker.provider: github` spelling (the default). Under any other tracker, read `docs/workflow/adapters/tracker-<provider>.md` and perform the equivalent operation — same protocol, different call. PRs are always GitHub, so everything from the branch onward is unchanged.
+
 ## Procedure
 
 1. **Service existing obligations first** (before any new claim):
@@ -35,6 +37,7 @@ Claim one ready board issue, build it with TDD, deliver a PR. **One task per inv
 
 5. **Deliver.**
    - **REQUIRED SUB-SKILL:** the verification skill bound in `raw.config.yml` (`bindings.verification`, default `superpowers:verification-before-completion`). Run the configured `commands.lint` and `commands.test_all` — green before handoff.
+   - **Evidence gate** (`evidence.ui_screenshot`, default `auto` — see review-policy.md). Active when the issue says `**User-visible:** yes` or carries a UI-ish `area:*` label (`auto`), or always (`required`). Then: start the app with `commands.dev`, drive the actual flow, screenshot it, and attach the image under "Requirements coverage" in the PR. A passing test is not evidence that anything rendered. `commands.dev` unset while the gate is active → **BLOCKED** (label + comment), never a silent skip.
    - Use the `create-pr` skill to finalize (template, ready state).
    - `gh issue edit <n> --remove-label "status:in-progress" --add-label "status:in-review"`
    - Stop.
@@ -42,6 +45,7 @@ Claim one ready board issue, build it with TDD, deliver a PR. **One task per inv
 ## Blocked or too big
 
 - **Blocked** (missing info, spec gap, env failure): label `status:blocked`, comment exactly what is needed, push WIP to the branch, stop. Never a half-finished ready PR.
+  Before you do: check the issue timeline. If this issue has already been blocked once on an **execution** failure (not a launch/infra error), it is a **spec defect** — apply the two-strikes rule from board-protocol.md instead: relabel `status:proposed` and comment `needs rewrite: <what was ambiguous>`. Rewriting is the planner's job, not yours.
 - **Too big** (discovered mid-build): no PR; comment a proposed split; relabel `status:proposed`; stop.
 
 ## Red flags — stop

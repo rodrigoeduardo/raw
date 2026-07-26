@@ -7,7 +7,9 @@ Development is driven by an agentic workflow on GitHub Issues.
 - **Any task**: read the relevant specs under `docs/specs/` first. Business rules are the source of truth.
 - **Anything touching the board** (issues, labels, claims, PRs): follow `docs/workflow/board-protocol.md` exactly.
 - **Git**: `docs/workflow/git-conventions.md` applies at all times — commit on the fly, atomic commits, Conventional Commits, never commit to the default branch.
-- **AI PR review semantics**: `docs/workflow/review-policy.md`.
+- **AI PR review semantics** (verdicts, finding reconciliation, evidence gate): `docs/workflow/review-policy.md`.
+- **Keeping a PR green** (CI triage, feedback fingerprint, fix rounds, merge checklist): `docs/workflow/pr-babysit.md`.
+- **Non-default tracker / worktree / runner**: `docs/workflow/adapters/` — one doc per provider; the protocol is identical, only the commands change.
 
 ### Workflow skills
 
@@ -16,5 +18,6 @@ Development is driven by an agentic workflow on GitHub Issues.
 - `/next-task` — builder: claim next ready issue, implement with TDD, deliver PR.
 - `/create-pr` — finalize a branch into a template-compliant PR (draft-first).
 - `/review-pr` — AI review of a PR, on request.
+- `/babysit-pr` — keep one PR green: CI triage, finding reconciliation, fix, merge-ready.
 - `/autopilot` — autonomous orchestrator: build → review → merge → deploy within configured gates.
 <!-- END:raw-workflow -->

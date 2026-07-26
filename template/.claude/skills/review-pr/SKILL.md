@@ -25,6 +25,7 @@ Review a PR against its issue's acceptance criteria and the specs. Runs only on 
    3. Scope — diff contains nothing beyond the issue's scope ("Out of scope" respected).
    4. Tests — criteria covered by tests, tests meaningful.
    5. Conventions — git-conventions.md, template compliance.
+   6. Evidence gate — if it's active for this issue (`evidence.ui_screenshot`, see review-policy.md), open the attached screenshot and confirm it shows the claimed behavior in the real app. Missing or unconvincing → blocking finding. A green suite is not evidence that anything rendered.
 
 3. **Post findings** as PR comments — one problem per comment: `location: problem. suggested fix.` No praise padding, no nitpicks that don't change meaning.
 

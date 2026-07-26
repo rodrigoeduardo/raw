@@ -35,7 +35,10 @@ docs(workflow): clarify stale-claim takeover rule
 
 - Never commit directly to the default branch (`main` below; substitute yours).
 - Naming: `type/<issue-number>-<kebab-slug>` when tied to a board issue — e.g. `feat/23-user-signup-form`, `fix/31-invoice-rounding`. Without an issue: `type/<kebab-slug>`.
-- Branch off fresh `main`.
+- Branch off fresh `main` — `git fetch origin` first, every time. For an issue with a `Depends on #N`
+  whose blocker merged, this is what puts the blocker's code in your branch: branch off the updated
+  default branch, never off the blocker's branch (no stacked branches — every PR targets the default
+  branch so CI tells the truth about what merging would do).
 
 ## Pushes and PRs
 
