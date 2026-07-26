@@ -89,6 +89,14 @@ execute. Read the adapter doc for whatever gets selected before writing anything
      repos. Recommend `auto`.
    - If the answer is not `off` and `commands.dev` is unset, ask for it now (go back to the commands
      block) — the gate BLOCKS issues when it can't run the app.
+   - Then ask **`evidence.driver`** (`playwright` | `manual`), unless `ui_screenshot` is `off`.
+     Recommend `playwright` — it's the documented, repeatable path
+     (`docs/workflow/adapters/evidence-playwright.md`); `manual` means the worker improvises, and is
+     for stacks Playwright can't drive.
+     Prerequisite check before recommending it: is the **Playwright MCP server** reachable in this
+     session, else does `npx playwright --version` work? Neither → say so plainly: the gate will
+     BLOCK gated issues until one exists. Let the human choose anyway (installing Playwright later
+     is normal) or pick `manual`; never silently downgrade the setting for them.
 
 ## Rules
 
