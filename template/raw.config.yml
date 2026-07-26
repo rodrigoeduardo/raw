@@ -90,3 +90,8 @@ evidence:
   # required — always required
   # off      — never required
   ui_screenshot: auto
+  # How the screenshot is captured. playwright (default) follows
+  # docs/workflow/adapters/evidence-playwright.md — the Playwright MCP server
+  # when the session has it, `npx playwright` otherwise. manual = the worker
+  # improvises (escape hatch for stacks Playwright can't drive).
+  driver: playwright # playwright | manual
