@@ -42,9 +42,14 @@ Configured by `raw.config.yml` → `evidence.ui_screenshot`:
 
 When the gate is active:
 
-1. The **builder** runs the real app (`commands.dev`), drives the actual flow at a reasonable viewport, screenshots it, and attaches the image to the PR under "Requirements coverage".
-2. The **reviewer** opens the artifact and checks it shows the claimed behavior, *before* setting a verdict. That second look is the whole point — "a screenshot exists" is not the gate, "someone besides the worker looked" is.
+1. The **builder** captures the artifact per `evidence.driver` — default `playwright`, whose full procedure is [`adapters/evidence-playwright.md`](adapters/evidence-playwright.md): run the app (`commands.dev`), drive the actual flow at 1280×800, and **commit** the image to `docs/evidence/<issue#>-<slug>.png` on the task branch, linked from "Requirements coverage". It is committed rather than attached because GitHub has no attachment API — `gh` cannot upload an image, so a committed blob is the only artifact a reviewer can reliably open.
+2. The **reviewer** opens that file and checks it shows the claimed behavior, *before* setting a verdict. That second look is the whole point — "a screenshot exists" is not the gate, "someone besides the worker looked" is.
 3. No artifact on a gated PR → `ai-review:changes-requested`. Do not approve on the promise of one.
+4. `docs/evidence/*` is **expected output** on a gated issue, never scope creep — the scope check exempts it.
+
+`evidence.driver: manual` is the escape hatch for stacks Playwright can't drive: the worker produces the artifact however it can, and everything else about the gate is unchanged.
+
+Each gated issue leaves ~100–300 KB in history. `docs/evidence/` can be pruned whenever you like — the artifact's job ends once someone besides the worker has looked at it.
 
 **`commands.dev` unset while the gate is active on an issue → the builder reports `BLOCKED`.** Silently skipping the gate is not an option: that is exactly the failure the gate exists to catch. Fix the config (`/configure`), or set `evidence.ui_screenshot: off` deliberately.
 

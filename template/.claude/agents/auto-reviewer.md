@@ -29,10 +29,11 @@ last-reviewed commit for delta rounds).
    - `ai-review:approved` — every acceptance criterion met, no blocking findings, OR
    - `ai-review:changes-requested` — any blocking finding.
 2. Verify every "Requirements coverage" claim against the **actual diff** — evidence, not assertions.
-3. **Evidence gate** (see `docs/workflow/review-policy.md`): if it's active for this issue, open the
-   attached screenshot and check it actually shows the claimed behavior before you set a verdict —
-   you are the "someone besides the worker" the gate exists for. Missing or unconvincing artifact →
-   `ai-review:changes-requested`.
+3. **Evidence gate** (see `docs/workflow/review-policy.md`): if it's active for this issue, open
+   `docs/evidence/<issue#>-<slug>.png` from the diff and check it actually shows the claimed
+   behavior before you set a verdict — you are the "someone besides the worker" the gate exists for.
+   Missing or unconvincing artifact → `ai-review:changes-requested`. The PNG itself is expected
+   output, not scope creep.
 
 **Delta re-review (fix cycle):** don't redo a from-scratch review.
 
