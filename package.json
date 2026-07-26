@@ -1,6 +1,6 @@
 {
   "name": "raw-workflow",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Installable agentic workflow for Claude Code, driven by GitHub Issues — plan, build, review, merge, deploy with configurable human gates",
   "type": "module",
   "bin": {

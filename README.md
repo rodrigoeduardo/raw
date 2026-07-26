@@ -6,6 +6,15 @@ Everything is a plain file copied into your repo: skills, agent definitions, iss
 
 The other moving parts swap one config key at a time: worktree provider, executor and reviewer runners (Claude or Codex, per role), the TDD and verification skills, the screenshot driver, an optional second reviewer from another model family. See [Pluggability](#pluggability) for the full table. PRs stay on GitHub under every tracker.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/raw-workflow-dark.svg">
+    <img alt="raw workflow: docs/specs feeds /plan-board, which files issues as status:proposed on the tracker. The promote gate moves them to ready; /next-task claims and builds one and /create-pr opens the PR. From there a per-PR babysitter takes over: /review-pr checks the diff against the acceptance criteria and findings are reconciled, with confirmed ones looped back as fixes. The merge gate sits outside the babysitter — the orchestrator merges — then the deploy gate runs and a run summary feeds new proposals back to the planner. Every box reads and writes the same tracker, and /autopilot spans the promote-to-deploy section." src="docs/assets/raw-workflow-light.svg" width="100%">
+  </picture>
+</p>
+
+Every solid box is a skill you can invoke on its own; the dashed box is `/autopilot` composing the same skills end to end. Nothing is passed between them in chat — each one reads its state from the tracker and writes the result back. Source: [`docs/assets/raw-workflow.excalidraw`](docs/assets/raw-workflow.excalidraw).
+
 ## Quickstart (2-minute setup)
 
 1. Install into your repo (copies files; skips anything that already exists):
@@ -54,16 +63,16 @@ When a ticket fails twice, raw treats it as a spec defect instead of blaming the
 
 Two things keep the review loop honest:
 
-- **Findings are reconciled before they become work.** A finding from raw's reviewer, a review bot, or a human is a claim about the code, and claims can be confidently wrong. The orchestrator opens the code and confirms each blocking finding reproduces; the ones that don't get a reply with the evidence and cost you nothing. Forwarding a hallucinated finding buys a full implementation round fixing a bug that doesn't exist.
+- **Findings are reconciled before they become work.** A finding from raw's reviewer, a review bot, or a human is a claim about the code, and claims can be confidently wrong. The PR's babysitter opens the code and confirms each blocking finding reproduces; the ones that don't get a reply with the evidence and cost you nothing. Forwarding a hallucinated finding buys a full implementation round fixing a bug that doesn't exist.
 - **Evidence beats assertion on user-visible work.** A green test proves the logic ran, not that anything rendered. When an issue is marked user-visible, the builder screenshots the real running app driving the real flow, and the reviewer looks at it before the verdict. The gate is "someone besides the worker looked", not "a screenshot exists". Headless repos never notice it.
 
-`/babysit-pr` runs the same per-PR procedure on a single PR when you don't want the whole board: CI triage (a cancelled run is not a failure), a feedback fingerprint so a comment arriving after green CI still blocks merge, reconciliation, fix, merge-ready.
+`/babysit-pr` is that whole per-PR procedure — CI triage (a cancelled run is not a failure), a feedback fingerprint so a comment arriving after green CI still blocks merge, reconciliation, fix, merge-ready. Run it yourself on a single PR when you don't want the whole board; `/autopilot` runs the same thing, one babysitter per PR, and keeps only the merge.
 
 ### #4: Autonomy is a dial
 
 **The problem.** Most autonomous-agent setups are all-or-nothing: either you babysit every step or you hand over the keys.
 
-**The fix.** `/autopilot` plus the gate config. Three gates (promote, merge, deploy), each set to `human` or `auto` in `raw.config.yml`, all defaulting to `human`. Autopilot orchestrates executor and reviewer sub-agents, loops review→fix up to a cap, and goes exactly as far as your gates allow: with `merge: human` it parks approved+green PRs for your click; with everything `auto` it drains the board and deploys. `auto:hold` labels and an `AUTO-STOP` issue give you brakes at any granularity.
+**The fix.** `/autopilot` plus the gate config. Three gates (promote, merge, deploy), each set to `human` or `auto` in `raw.config.yml`, all defaulting to `human`. Autopilot claims issues, dispatches a builder for each and a babysitter to take its PR to merge-ready, and goes exactly as far as your gates allow: with `merge: human` it parks approved+green PRs for your click; with everything `auto` it drains the board and deploys. `auto:hold` labels and an `AUTO-STOP` issue give you brakes at any granularity.
 
 It builds the dependency DAG from `Depends on #N` lines and prints a wave table (`| Wave | Issues | Unblocks |`) so you can see the critical path. But it *schedules* off the claimable frontier, re-derived from GitHub every pass. Batched waves are a snapshot, and a snapshot is wrong the moment you edit the board mid-run or a session crashes.
 
@@ -101,7 +110,7 @@ your-repo/
 ├── CLAUDE.md                         # raw section appended (markers, idempotent)
 ├── .claude/
 │   ├── skills/                      # autopilot, next-task, create-pr, review-pr, babysit-pr, plan-board, configure
-│   ├── agents/                      # auto-executor, auto-reviewer
+│   ├── agents/                      # auto-executor, auto-babysitter, auto-reviewer
 │   └── settings.json                # worktree symlink config (Node default; edit for your stack)
 ├── .github/
 │   ├── ISSUE_TEMPLATE/task.md       # board task template

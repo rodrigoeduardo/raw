@@ -1,8 +1,16 @@
 # Keeping a PR green (babysit procedure)
 
-The shared procedure for driving **one** open PR from "opened" to "merge-ready". `/autopilot` runs it
-per PR inside its loop; `/babysit-pr` runs it standalone on a single PR. Both read this file so the
-two can't drift.
+The shared procedure for driving **one** open PR from "opened" to "merge-ready". Two callers, one
+file, so they can't drift:
+
+| Caller | Mode | Ends at |
+|---|---|---|
+| `/babysit-pr <PR#>` — a human, on one PR | `interactive` | the merge gate, per `gates.merge` |
+| `auto-babysitter` — dispatched by `/autopilot`, one per PR | `dispatched` | the checklist; it **reports**, the orchestrator merges |
+
+The orchestrator keeps the merge because merges have to be serialized: each one changes the default
+branch, and it re-derives the claimable frontier from that branch after every merge. Parallel
+babysitters merging on their own would race it.
 
 Nothing here merges anything — merging is the merge gate (`gates.merge`), the last section.
 
@@ -16,6 +24,14 @@ Confirm the PR targets the **default branch**, the head is the task branch for i
 (`type/<issue#>-<slug>`), and the touched files are plausibly within the issue's scope. Drift → say
 so on the PR and treat it as a fix reason before spending a review on it. A mis-based PR makes CI
 lie about what merging would do.
+
+**Then decide whether this PR is worth a review at all.** The same `files` list answers it; add
+`gh pr view <p> --json additions,deletions` for the size. Skip the reviewer when the diff touches
+**only** docs/config paths (`*.md`, `.github/**`, `.claude/**`, dotfiles, `raw.config.yml`) **or**
+total changed lines are under ~30 with no source files touched. A skipped PR gets no
+`ai-review:requested` label, satisfies the review half of the §5 checklist on green CI alone, and
+must be recorded as `review=skipped-trivial`. A user-visible PR is never trivial — the evidence
+gate needs a reviewer.
 
 ## 1. CI triage — red is not automatically a failure
 
@@ -97,9 +113,14 @@ default branch, or scope drift from section 0.
 - Everything else → the fix is a code change on the PR branch: TDD where a finding names untested
   behavior, atomic commits, `git push`. Never force-push.
 
-Who writes the fix depends on the caller: `/autopilot` dispatches an `auto-executor` (mode FIX) with
-**only the confirmed findings**; `/babysit-pr` may fix inline or dispatch, per its own rules. Either
-way, a new push means a new SHA — CI state and the feedback fingerprint both restart.
+Who writes the fix depends on the caller. Both may fix inline or dispatch an `auto-executor` (mode
+FIX) — and a dispatch carries **only the confirmed findings**, never the rebutted ones. `babysit-pr`
+defines the ceiling for fixing inline; past it, dispatch. Either way, a new push means a new SHA —
+CI state and the feedback fingerprint both restart.
+
+**Don't run the suite to decide any of this.** CI already ran it, and the executor runs
+`commands.lint` + `commands.test_all` before it hands off. Read `gh pr checks` and
+`gh run view <id> --log-failed`; running it again here just pays for the same signal twice.
 
 After a fix round, re-review is a **delta**: what changed since the last reviewed SHA, plus
 confirmation that each previously blocking finding is addressed. Rebutted findings stay closed
@@ -109,15 +130,23 @@ unless new evidence appears.
 
 A PR is merge-ready only when **all** hold:
 
-- verdict `ai-review:approved` (or the PR was skipped as trivial — docs/config-only, or <~30 changed
-  lines with no source files),
+- verdict `ai-review:approved` (or the PR was skipped as trivial per §0),
 - every check green (`gh pr checks <p>`) on the **current** head SHA,
 - **mergeable**, not behind the default branch (`gh pr view <p> --json mergeable,mergeStateStatus`),
 - the current feedback fingerprint has been triaged,
 - the evidence gate is satisfied for user-visible work (see `review-policy.md`).
 
-Then, per `gates.merge`: `auto` → `gh pr merge <p> --squash` (never `--delete-branch`); `human` →
-report it as ready to merge and stop.
+The evidence gate is the **reviewer's** to enforce — it opens `docs/evidence/<issue#>-<slug>.png`
+and blocks on a missing or unconvincing artifact. Here, confirm it via the `ai-review:approved`
+verdict; don't re-open the image. It is the one artifact on a PR expensive enough that reading it
+twice is worth avoiding.
+
+Then, by mode:
+
+- `interactive` → per `gates.merge`: `auto` → `gh pr merge <p> --squash` (never `--delete-branch`);
+  `human` → report it as ready to merge and stop.
+- `dispatched` → report `MERGE_READY` and stop. **Never merge**, even with `gates.merge: auto` —
+  the orchestrator owns the merge (see the caller table at the top).
 
 **On merge**, read the PR's **"Human actions needed"** section and surface it — backfills, flag
 flips, secrets/env, docs sync. These are the human's to trigger and they vanish from view once the

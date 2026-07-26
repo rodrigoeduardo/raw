@@ -29,20 +29,35 @@ AI agents are good at building small, well-specified tasks and bad at deciding w
 | Reviewer | `/review-pr` skill | Diff vs acceptance criteria → comments + verdict label |
 | Adversarial reviewer (opt-in) | `runners.adversarial_reviewer` | Second review from another model family → comments only, never a verdict |
 | PR babysitter | `/babysit-pr` skill | One PR: CI triage, finding reconciliation, fix, merge-ready |
-| Orchestrator | `/autopilot` skill | Dispatch executors/reviewers, reconcile findings, fix loop, merge gate, deploy step |
-| Workers | `auto-executor`, `auto-reviewer` agents | Isolated single-job wrappers around the skills above |
+| Orchestrator | `/autopilot` skill | Claim issues, dispatch executors and babysitters, merge gate, deploy step |
+| Workers | `auto-executor`, `auto-babysitter`, `auto-reviewer` agents | Isolated single-job wrappers around the skills above |
 
 The per-PR procedure lives in `docs/workflow/pr-babysit.md` and is shared: `/babysit-pr` is its
-single-PR entry point, `/autopilot` runs it inside its loop. One procedure, two callers, no drift.
+entry point, invoked either by a human on one PR or by an `auto-babysitter` that `/autopilot`
+dispatches per PR. One procedure, two callers, no drift.
 
-### The orchestrator's one widening
+### Two context lifetimes, two sessions
 
-The orchestrator is otherwise a cheap bookkeeper — labels, dispatch, checklists, all state re-derived
-from the tracker. Finding reconciliation (core idea 9) deliberately widens that: it **reads code** to
-verify a specific claim before spending a fix round on it. It still never writes code, never reviews
-a diff wholesale, and never fixes CI itself. The cost of the widening is that the orchestrator
-session must be capable enough to read a diff and tell a real finding from a hallucinated one — so
-"run it on the cheapest model" is no longer the advice; "run it on a session that can read code" is.
+Finding reconciliation (core idea 9) **reads code** — it verifies a specific claim before a fix
+round is spent on it. So do CI triage and feedback triage. That work is unavoidable, but it is
+**PR-scoped**: once the PR merges, none of it matters again.
+
+The orchestrator's own state is **board-scoped**: the dependency graph, the claimable frontier,
+what merged this run. It has to survive the whole drain.
+
+Running both in one session means the disposable content accumulates in the durable one, and a long
+board eventually forces a restart mid-run. So the per-PR work happens in a dispatched
+`auto-babysitter` whose context dies with the PR, and the orchestrator gets back a status line.
+That keeps it a cheap bookkeeper again — labels, dispatch, checklists, all state re-derived from the
+tracker, and it never reads a diff or a CI log.
+
+The judgement requirement moves with the work: `runners.babysitter` defaults to a stronger model
+than the executor and reviewer, because telling a real finding from a confident hallucination is the
+call the whole fix loop hangs on.
+
+Merging stays with the orchestrator, and that is the one thing the split can't relax: each merge
+changes the default branch the frontier is re-derived from, so parallel babysitters merging on their
+own would race it.
 
 ## Lifecycle
 

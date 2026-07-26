@@ -21,7 +21,7 @@ Builders treat `ai-review:changes-requested` exactly like human change-requests:
 
 A review finding — from raw's reviewer, a review bot, or a human — is a claim about the code, and claims can be confidently wrong. Before a finding turns into work, someone opens the code and confirms it reproduces:
 
-- Under `/autopilot`, the **orchestrator** does this (its step 7b) and dispatches only the confirmed findings; findings that don't reproduce get a reply with the evidence and are recorded as **rebutted**. A later delta re-review treats rebutted findings as closed unless new evidence appears.
+- The PR's **babysitter** does this (`pr-babysit.md` §3) — an `auto-babysitter` under `/autopilot`, or you running `/babysit-pr`. Only confirmed findings become work; findings that don't reproduce get a reply with the evidence and are recorded as **rebutted**. A later delta re-review treats rebutted findings as closed unless new evidence appears.
 - Working by hand, you are that step: reproduce before you fix. Changing correct code to satisfy an invalid comment is a regression that passes review.
 
 Ambiguous, conflicting, or scope-expanding feedback is neither fixed nor dismissed — it's escalated to a human with the competing options, and the thread stays open.

@@ -74,16 +74,21 @@ execute. Read the adapter doc for whatever gets selected before writing anything
 2. **Worktrees** (`worktrees.provider`: `claude` | `orca` | `conductor`).
    - Prerequisite: `command -v orca` / `command -v conductor`. Missing → not offered.
    - `conductor` is **experimental** (guidance doc, unverified surface) — say so when offering it.
-3. **Runners** (`runners.executor`, `runners.reviewer`, `runners.adversarial_reviewer`).
+3. **Runners** (`runners.executor`, `runners.reviewer`, `runners.babysitter`,
+   `runners.adversarial_reviewer`).
    - Prerequisite for `codex`: `command -v codex`. Missing → only `claude` is offered.
    - Per role ask: runner, model, effort (`low|medium|high|xhigh|max`).
+   - `babysitter` defaults to a **stronger** model than the other two. Say why if they ask to
+     downgrade it: it decides whether each review finding actually reproduces before a fix round is
+     paid for, and a wrong call there costs a full executor round changing correct code.
    - `adversarial_reviewer` is opt-in and off by default; explain it in one line — a second reviewer
      from another model family posts findings as PR comments for decorrelated errors, and raw's
      reviewer still owns the verdict label.
    - **Sync claude runner settings into the agent definitions**: after writing the config, update
-     `.claude/agents/auto-executor.md` and `.claude/agents/auto-reviewer.md` frontmatter (`model:`,
-     `effort:`) to match `runners.*`. The frontmatter is the fallback when nothing overrides it; a
-     config that disagrees with it is a silent lie.
+     `.claude/agents/auto-executor.md`, `.claude/agents/auto-reviewer.md` and
+     `.claude/agents/auto-babysitter.md` frontmatter (`model:`, `effort:`) to match `runners.*`. The
+     frontmatter is the fallback when nothing overrides it; a config that disagrees with it is a
+     silent lie.
 4. **Evidence gate** (`evidence.ui_screenshot`: `auto` | `required` | `off`).
    - Explain `auto` in one line: required only for issues marked user-visible, inert for headless
      repos. Recommend `auto`.

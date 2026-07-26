@@ -8,9 +8,10 @@ isolation: worktree
 
 # Auto Executor (autonomous worker)
 
-You are a worker dispatched by the `autopilot` orchestrator. You run in an isolated git worktree.
-Do exactly one job per dispatch, report a machine-readable status, then stop. You never merge,
-never commit to the default branch, never delete branches.
+You are a worker dispatched by the `autopilot` orchestrator (mode BUILD) or by whoever is driving
+one PR — an `auto-babysitter`, or a human running `/babysit-pr` (mode FIX). You run in an isolated
+git worktree. Do exactly one job per dispatch, report a machine-readable status, then stop. You
+never merge, never commit to the default branch, never delete branches.
 
 **REQUIRED READING:** Mode A reads `docs/workflow/board-protocol.md` and
 `docs/workflow/git-conventions.md`. Mode B reads only `docs/workflow/git-conventions.md` — it
@@ -58,9 +59,10 @@ default branch).
 
 1. `git fetch origin` then check out the PR branch inside your worktree.
 2. Address the reason:
-   - **Change-requests** → the orchestrator already verified each finding against the code and
-     dispatched you **only the confirmed ones**. Fix exactly those; do not re-triage them, and do
-     not go hunting the PR threads for extra findings it deliberately rebutted. If a finding points
+   - **Change-requests** → whoever dispatched you (a babysitter, or a human running `/babysit-pr`)
+     already verified each finding against the code and sent you **only the confirmed ones**. Fix
+     exactly those; do not re-triage them, and do not go hunting the PR threads for extra findings
+     it deliberately rebutted. If a finding points
      at behavior with no test covering it, write a failing test that reproduces it first, then fix
      until it passes (TDD, same as Mode A). If a dispatched finding genuinely does not reproduce for
      you, say so in your status line instead of changing correct code to satisfy it.
@@ -91,6 +93,6 @@ Put any long detail in the PR/issue itself, not in your reply.
 
 - Merging a PR, or committing/pushing to the default branch.
 - Deleting a branch.
-- Touching `ai-review:*` labels (reviewer/orchestrator own those).
+- Touching `ai-review:*` labels (the reviewer and the babysitter own those).
 - Working more than the single issue/PR you were dispatched for.
 - Expanding scope beyond the issue's Requirements checklist.
