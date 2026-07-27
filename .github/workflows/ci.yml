@@ -1,0 +1,72 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-templates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # template/.github/workflows/ is inert here — GitHub only runs workflows
+      # under the repo root — so nothing else would catch a file that stops
+      # parsing. Consumers get it verbatim via `raw init`, and GitHub reports an
+      # unparseable workflow as a failed 0s run on every push to their repo.
+      - name: Validate shipped YAML
+        run: |
+          set -euo pipefail
+          rc=0
+          for f in template/.github/workflows/*.yml template/raw.config.yml; do
+            if npx --yes js-yaml "$f" > /dev/null; then
+              echo "ok   $f"
+            else
+              echo "FAIL $f"
+              rc=1
+            fi
+          done
+          exit $rc
+
+      - name: Check workflow shape
+        run: |
+          set -euo pipefail
+          for f in template/.github/workflows/*.yml; do
+            npx --yes js-yaml "$f" | node -e '
+              let s = "";
+              process.stdin.on("data", (d) => (s += d)).on("end", () => {
+                const doc = JSON.parse(s);
+                // `on:` parses as the boolean true under YAML 1.1.
+                const trigger = doc.on ?? doc.true;
+                const missing = [
+                  !trigger && "on",
+                  !doc.jobs && "jobs",
+                ].filter(Boolean);
+                if (missing.length) {
+                  console.error(`${process.argv[1]}: missing ${missing.join(", ")}`);
+                  process.exit(1);
+                }
+              });
+            ' "$f"
+          done
+
+      - name: CLI smoke test — init into a scratch repo
+        run: |
+          set -euo pipefail
+          target=$(mktemp -d)
+          git init -q "$target"
+          node bin/cli.mjs init "$target"
+          test -f "$target/.raw-manifest.json"
+          test -f "$target/.github/workflows/raw-update-check.yml"
+          # Installed copies are byte-identical, so validate what a consumer gets.
+          for f in "$target"/.github/workflows/*.yml; do
+            npx --yes js-yaml "$f" > /dev/null
+          done
