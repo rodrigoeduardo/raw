@@ -25,9 +25,11 @@ Before anything else:
 1. Run the configured `commands.install` if dependencies are missing in your worktree (a
    symlinked/shared dependency dir may already exist via `.claude/settings.json`
    `worktree.symlinkDirectories`).
-2. **Seed gitignored files.** A fresh worktree does not inherit them, so anything listed in
-   `worktrees.seed_files` is copied in from the primary repo root — see
-   `docs/workflow/adapters/worktrees-<provider>.md` for the exact procedure. Unset or empty = skip.
+2. **Seed gitignored files.** A fresh worktree does not inherit them. Under the `claude` provider
+   `.worktreeinclude` has usually already copied them in at creation, so check before acting;
+   anything still missing that `worktrees.seed_files` lists is copied from the primary repo root —
+   see `docs/workflow/adapters/worktrees-<provider>.md` for the exact procedure. Unset or empty
+   list = skip.
 3. Verify the environment resolves (env files, local services the test suite needs — whatever your
    project's CLAUDE.md documents).
 4. If the environment cannot resolve, report `BLOCKED` immediately with that reason. **Never debug

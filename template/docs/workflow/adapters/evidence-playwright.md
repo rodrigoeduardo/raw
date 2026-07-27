@@ -19,12 +19,14 @@ Run the configured `commands.dev` as a **background** command from the worktree 
 
 **Env first, in a worktree.** A fresh worktree has no gitignored files, so a dev server that needs
 `.env.local` (or equivalent) won't boot there even though it boots fine in the primary checkout —
-this gate is where that surfaces. List those paths in `raw.config.yml` → `worktrees.seed_files` and
-the worker's preflight copies them in from the **primary repo root**; the procedure and its rules
-are in `worktrees-claude.md`. Never copy env out of a sibling worktree, and never write an env value
-yourself to get the server up. If `seed_files` is empty and the server dies on a missing variable,
-that is a config gap in the repo, not something to improvise around — report it with §2's `BLOCKED`
-and the server's last output lines.
+this gate is where that surfaces. Under the `claude` provider those paths come from
+`.worktreeinclude` at worktree creation; `raw.config.yml` → `worktrees.seed_files` covers the other
+providers and anything that should block. Both are documented in `worktrees-claude.md`.
+
+Never copy env out of a sibling worktree, and never write an env value yourself to get the server
+up. A server that dies on a missing variable means the path is in neither list, or isn't present in
+the primary checkout either — a config gap in the repo, not something to improvise around. Report it
+with §2's `BLOCKED` and the server's last output lines.
 
 ## 2. Learn the URL
 
@@ -99,9 +101,9 @@ expected output on a gated issue — `review-pr` exempts it from the scope check
 ## 5. Stop the app
 
 Kill the background `commands.dev` process. A dev server left running holds its port and the next
-parallel worker's capture fails on a URL that isn't its own. Delete anything preflight seeded from
-`worktrees.seed_files` — a worktree that produced commits sticks around, and so do the credentials
-in it.
+parallel worker's capture fails on a URL that isn't its own. Delete anything **preflight** seeded
+from `worktrees.seed_files` — a worktree that produced commits sticks around, and so do the
+credentials in it. Leave `.worktreeinclude` copies alone; those are the harness's.
 
 ## Blocking reasons (exact strings)
 

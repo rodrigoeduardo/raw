@@ -69,10 +69,17 @@ tracker:
 worktrees:
   provider: claude # claude | orca | conductor (experimental)
   # Gitignored files a fresh worktree needs but cannot inherit — env files above
-  # all. Each path is copied from the primary repo root into the worktree during
-  # the worker's preflight. Paths are repo-relative; they stay gitignored, so
-  # they never enter a diff. Empty = nothing is copied.
-  # Required by the evidence gate below whenever commands.dev needs env to boot.
+  # all, without which commands.dev won't start and the evidence gate below
+  # can't be satisfied.
+  #
+  # Under provider: claude this is already handled by `.worktreeinclude` at the
+  # repo root, which Claude Code applies at worktree creation — edit that file,
+  # and leave this empty. Set this only to cover what .worktreeinclude can't:
+  #   - the orca and conductor providers, which don't run that code path;
+  #   - a path whose absence should BLOCK the worker with a named reason rather
+  #     than fail later as an unexplained dev-server crash.
+  # Each entry is copied from the primary repo root during the worker's
+  # preflight and deleted before it reports. Empty = nothing is copied.
   seed_files: []
   # EXAMPLE:
   # seed_files: [.env.local]

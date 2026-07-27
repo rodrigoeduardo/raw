@@ -24,16 +24,46 @@ Fresh worktrees start without `node_modules` (or your stack's equivalent). Two o
   new worktree reuses the parent's install; or
 - let the worker run `commands.install` in its preflight.
 
-## Gitignored files (`worktrees.seed_files`)
+## Gitignored files — `.worktreeinclude`
 
-A worktree is a checkout of tracked files only. Gitignored ones — `.env.local` above all — are **not**
-inherited, so `commands.dev` and any env-dependent test fails in a fresh worktree while passing in
+A worktree is a checkout of *tracked* files. Gitignored ones — `.env.local` above all — are **not**
+inherited, so `commands.dev` and every env-dependent test fails in a fresh worktree while passing in
 the primary checkout. `symlinkDirectories` doesn't cover this: it takes directories, not files.
 
-There is no post-create setup hook to lean on either. Claude Code's `WorktreeCreate` hook *replaces*
-worktree creation (it must create the directory and echo its path — it exists for non-git VCS), so
-using it to seed env would mean owning worktree creation for every dispatch. Seeding is therefore
-raw's own preflight step, driven by `raw.config.yml` → `worktrees.seed_files`.
+Claude Code handles it natively. At worktree creation it reads **`.worktreeinclude`** from the main
+repo root and copies the matching paths in:
+
+```gitignore
+# .worktreeinclude — gitignore syntax, one pattern per line, # comments allowed
+.env.local
+.env.*.local
+```
+
+The installed default already covers those two. Add whatever else your dev server needs.
+
+Two properties worth relying on:
+
+- **Only gitignored paths can match.** The patterns are intersected with
+  `git ls-files --others --ignored --exclude-standard --directory`, so no tracked file can be pulled
+  in by mistake, and the copies stay out of every diff by construction.
+- **A pattern for a file you don't have is a no-op**, not an error — which is also the one sharp
+  edge: a missing `.env.local` is silent here, and the worker meets it later as a dev server that
+  won't boot.
+
+Directories work too (`certs/`), and symlinked sources are skipped rather than followed.
+
+## Gitignored files — `worktrees.seed_files`
+
+raw's own version of the same step, run in the worker's preflight instead of at worktree creation.
+It exists for the two things `.worktreeinclude` can't do:
+
+- **Other providers.** `orca` and `conductor` create worktrees outside Claude Code's managed path,
+  so nothing reads `.worktreeinclude` there.
+- **Blocking.** A path that is missing at the source stops the worker with a named reason instead of
+  surfacing as an unexplained dev-server crash three steps later.
+
+Under `provider: claude`, prefer `.worktreeinclude` and leave `seed_files` empty — configuring both
+for the same path just copies it twice.
 
 **Preflight procedure** (step 2 of `auto-executor`; empty or unset list = skip entirely):
 
@@ -43,7 +73,7 @@ raw's own preflight step, driven by `raw.config.yml` → `worktrees.seed_files`.
 PRIMARY=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
 
 # For each entry in worktrees.seed_files:
-[ -e "<path>" ] && continue                     # worktree already has one — never clobber it
+[ -e "<path>" ] && continue                     # already seeded by .worktreeinclude, or present — never clobber
 [ -e "$PRIMARY/<path>" ] || exit_blocked        # see below
 mkdir -p "$(dirname "<path>")"
 cp "$PRIMARY/<path>" "<path>"
@@ -58,7 +88,15 @@ Rules the worker does not get to bend:
 - **Never staged.** These paths are gitignored, so they stay out of the diff by construction; if one
   turns up in `git status`, it isn't ignored and doesn't belong in `seed_files`.
 - **Delete before reporting status.** Every dispatch re-seeds, and a worktree that produced commits
-  is not auto-removed by the harness — leaving credentials in it is the failure mode.
+  is not auto-removed by the harness — leaving credentials in it is the failure mode. Paths that
+  came from `.worktreeinclude` are the harness's to leave alone.
+
+## What the harness does not offer
+
+Worth knowing before anyone reaches for a hook: there is no post-create worktree setup hook.
+`WorktreeCreate` **replaces** worktree creation — it must create the directory and echo its path,
+and exists so `--worktree` can work with non-git VCS — so using it to seed env would mean owning
+worktree creation for every dispatch. `.worktreeinclude` and the preflight above are the two levers.
 
 ## Parallelism
 

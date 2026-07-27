@@ -74,10 +74,17 @@ execute. Read the adapter doc for whatever gets selected before writing anything
 2. **Worktrees** (`worktrees.provider`: `claude` | `orca` | `conductor`).
    - Prerequisite: `command -v orca` / `command -v conductor`. Missing → not offered.
    - `conductor` is **experimental** (guidance doc, unverified surface) — say so when offering it.
-   - `worktrees.seed_files`: ask whenever `commands.dev` is set and `evidence.ui_screenshot` isn't
-     `off` — that combination is where a missing env file blocks a worker. Propose the gitignored
-     env paths that actually exist at the repo root (`git check-ignore -v .env.local .env …`) and let
-     the human confirm; never add a path that isn't gitignored, and never one that isn't there.
+   - **Gitignored files a worktree needs** — ask whenever `commands.dev` is set and
+     `evidence.ui_screenshot` isn't `off`; that combination is where a missing env file blocks a
+     worker. Propose only paths that are gitignored *and* present (`git status --ignored --short`,
+     or `git check-ignore -v .env.local .env …`) — never one that is tracked, never one that isn't
+     there. Then write them to whichever mechanism the provider uses:
+     - `claude` → add them to `.worktreeinclude` and leave `seed_files` empty; Claude Code applies
+       that file at worktree creation. The installed default already lists `.env.local` and
+       `.env.*.local`, so often there is nothing to do.
+     - `orca` / `conductor` → `worktrees.seed_files`; those providers never read `.worktreeinclude`.
+     - Either provider, when a missing path should stop the worker with a named reason rather than
+       fail later as a dead dev server → `worktrees.seed_files`.
 3. **Runners** (`runners.executor`, `runners.reviewer`, `runners.babysitter`,
    `runners.adversarial_reviewer`).
    - Prerequisite for `codex`: `command -v codex`. Missing → only `claude` is offered.

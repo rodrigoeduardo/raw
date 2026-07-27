@@ -27,9 +27,10 @@ parallel workers.
    the tracker and the PR. Make sure a worker that dies leaves a visible trace (blocked label,
    comment) rather than silence.
 4. **Gitignored files.** The per-workspace dev server is the whole reason to be here, and it won't
-   boot without the env a workspace can't inherit from git. Confirm how Conductor seeds a workspace;
-   whatever it does or doesn't do, `worktrees.seed_files` + the preflight in `worktrees-claude.md` →
-   "Gitignored files" still works, because a workspace is a git checkout with a shared `.git`.
+   boot without the env a workspace can't inherit from git. `.worktreeinclude` does not apply —
+   Claude Code only reads it in its own worktree-creation path. Confirm how Conductor seeds a
+   workspace; whatever it does or doesn't do, `worktrees.seed_files` + the preflight in
+   `worktrees-claude.md` still works, because a workspace is a git checkout with a shared `.git`.
 
 ## Recommended posture
 

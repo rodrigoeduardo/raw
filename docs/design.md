@@ -128,18 +128,25 @@ Installs are plain copied files, not a managed dependency, so raw tracks drift i
 
 ## History
 
-**2026-07-27 — worktree env seeding, template CI.** Two defects from a real autopilot run. The
-evidence gate's `commands.dev` cannot start in a fresh worktree, because a worktree is a checkout of
-*tracked* files and env files are gitignored — so `evidence.ui_screenshot: auto` was unsatisfiable
-on any repo whose dev server needs env, and workers improvised (one copied env out of a sibling
-worker's worktree). Fixed declaratively with `worktrees.seed_files`, copied from the primary repo
-root during the worker's preflight and deleted before it reports. Not a harness hook: Claude Code's
-`worktree.symlinkDirectories` takes directories rather than files, and its `WorktreeCreate` hook
-*replaces* worktree creation rather than extending it, so seeding is raw's own step. Separately,
-`raw-update-check.yml` had never run anywhere — an unindented line inside its `run: |` block
-terminated the block scalar, and GitHub reports an unparseable workflow as a failed 0s run on every
-push. Nothing in this repo could catch that, since `template/.github/workflows/` is inert here; a
-root `ci.yml` now parses every shipped YAML file and smoke-tests `raw init`.
+**2026-07-27 — worktree env seeding, template CI.** Two defects from a real autopilot run.
+
+The evidence gate's `commands.dev` cannot start in a fresh worktree, because a worktree is a
+checkout of *tracked* files and env files are gitignored — so `evidence.ui_screenshot: auto` was
+unsatisfiable on any repo whose dev server needs env, and workers improvised (one copied env out of
+a sibling worker's worktree). The harness already solves this: Claude Code reads `.worktreeinclude`
+at worktree creation and copies in the gitignored paths it names, intersected with
+`git ls-files --others --ignored` so nothing tracked can slip through. raw now ships one covering
+`.env.local` and `.env.*.local`. `worktrees.seed_files` covers what that can't — the `orca` and
+`conductor` providers, which never go through Claude Code's worktree-creation path, and the case
+where a missing path should `BLOCKED` the worker instead of surfacing later as a dead dev server;
+those are copied in the worker's preflight and deleted before it reports. What genuinely doesn't
+exist is a post-create setup hook: `worktree.symlinkDirectories` takes directories rather than
+files, and `WorktreeCreate` *replaces* worktree creation rather than extending it.
+
+Separately, `raw-update-check.yml` had never run anywhere — an unindented line inside its `run: |`
+block terminated the block scalar, and GitHub reports an unparseable workflow as a failed 0s run on
+every push. Nothing in this repo could catch that, since `template/.github/workflows/` is inert here;
+a root `ci.yml` now parses every shipped YAML file and smoke-tests `raw init`.
 
 **2026-07-26 — waves, evidence, reconciliation, adapters.** Absorbed the lessons of a larger
 production run of the same shape of system: explicit dependency DAG + wave table (as reporting, over
