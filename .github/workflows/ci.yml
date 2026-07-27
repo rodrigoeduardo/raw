@@ -66,6 +66,10 @@ jobs:
           node bin/cli.mjs init "$target"
           test -f "$target/.raw-manifest.json"
           test -f "$target/.github/workflows/raw-update-check.yml"
+          # Dotfiles at the template root are easy to drop from a copy routine,
+          # and a missing .worktreeinclude fails silently at worktree creation.
+          test -f "$target/.worktreeinclude"
+          grep -qx '.env.local' "$target/.worktreeinclude"
           # Installed copies are byte-identical, so validate what a consumer gets.
           for f in "$target"/.github/workflows/*.yml; do
             npx --yes js-yaml "$f" > /dev/null
