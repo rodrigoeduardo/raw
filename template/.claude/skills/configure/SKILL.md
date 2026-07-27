@@ -74,6 +74,10 @@ execute. Read the adapter doc for whatever gets selected before writing anything
 2. **Worktrees** (`worktrees.provider`: `claude` | `orca` | `conductor`).
    - Prerequisite: `command -v orca` / `command -v conductor`. Missing → not offered.
    - `conductor` is **experimental** (guidance doc, unverified surface) — say so when offering it.
+   - `worktrees.seed_files`: ask whenever `commands.dev` is set and `evidence.ui_screenshot` isn't
+     `off` — that combination is where a missing env file blocks a worker. Propose the gitignored
+     env paths that actually exist at the repo root (`git check-ignore -v .env.local .env …`) and let
+     the human confirm; never add a path that isn't gitignored, and never one that isn't there.
 3. **Runners** (`runners.executor`, `runners.reviewer`, `runners.babysitter`,
    `runners.adversarial_reviewer`).
    - Prerequisite for `codex`: `command -v codex`. Missing → only `claude` is offered.

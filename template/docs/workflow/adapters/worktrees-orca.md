@@ -77,6 +77,14 @@ handle per issue so you can inspect a stalled worker, and confirm spawns with:
 orca worktree ps        # each new worktree should show live:1 pty:yes
 ```
 
+## Gitignored files (`worktrees.seed_files`)
+
+Orca worktrees are git worktrees, so they inherit the same gap: no `.env.local`, no dev server, and
+the evidence gate blocks. The preflight procedure and its rules are provider-independent — follow
+`worktrees-claude.md` → "Gitignored files". `$PARENT` above is the primary checkout only on a
+top-level run; the worker should resolve its own source with `git rev-parse --git-common-dir` rather
+than trusting a lineage parent, which may itself be another worker's worktree.
+
 ## Gotchas
 
 - `--base-branch origin/<default-branch>` for every worker — children of a fresh default branch,

@@ -17,6 +17,15 @@ invisible on screen while its tests pass" is exactly the failure it exists for.
 Run the configured `commands.dev` as a **background** command from the worktree root. Unset →
 `BLOCKED: evidence gate active but commands.dev is unset`. Do not guess a start command.
 
+**Env first, in a worktree.** A fresh worktree has no gitignored files, so a dev server that needs
+`.env.local` (or equivalent) won't boot there even though it boots fine in the primary checkout —
+this gate is where that surfaces. List those paths in `raw.config.yml` → `worktrees.seed_files` and
+the worker's preflight copies them in from the **primary repo root**; the procedure and its rules
+are in `worktrees-claude.md`. Never copy env out of a sibling worktree, and never write an env value
+yourself to get the server up. If `seed_files` is empty and the server dies on a missing variable,
+that is a config gap in the repo, not something to improvise around — report it with §2's `BLOCKED`
+and the server's last output lines.
+
 ## 2. Learn the URL
 
 Read the dev server's own output and take the first `http(s)://…` it prints — that is the source of
@@ -90,13 +99,16 @@ expected output on a gated issue — `review-pr` exempts it from the scope check
 ## 5. Stop the app
 
 Kill the background `commands.dev` process. A dev server left running holds its port and the next
-parallel worker's capture fails on a URL that isn't its own.
+parallel worker's capture fails on a URL that isn't its own. Delete anything preflight seeded from
+`worktrees.seed_files` — a worktree that produced commits sticks around, and so do the credentials
+in it.
 
 ## Blocking reasons (exact strings)
 
 | Situation | Report |
 |---|---|
 | `commands.dev` unset | `BLOCKED: evidence gate active but commands.dev is unset` |
+| A `worktrees.seed_files` path is missing at the primary repo root | `BLOCKED: worktrees.seed_files entry <path> not found at the primary repo root` |
 | No URL within 60s | `BLOCKED: dev server never printed a URL` |
 | No MCP server and no `npx playwright` | `BLOCKED: no playwright driver available` |
 | Flow can't be driven | `BLOCKED: could not drive <step> — <what happened>` |

@@ -134,7 +134,7 @@ your-repo/
 | `gates.deploy` | `human` | Who triggers `commands.deploy` after a merge batch |
 | `commands.install/lint/test/test_all` | unset | Your stack's commands; unset = step skipped, never guessed |
 | `commands.deploy` | unset | Deploy command; unset = assume CD on the default branch |
-| `commands.dev` | unset | Run the app locally — required by the evidence gate |
+| `commands.dev` | unset | Run the app locally — required by the evidence gate (see `worktrees.seed_files` if it needs env) |
 | `labels.areas` | `[]` | Domain `area:*` labels for issues |
 | `specs_dir` | `docs/specs` | Planner input tree |
 | `bindings.tdd` / `bindings.verification` | superpowers skills | Which skill fulfills each role — swappable |
@@ -143,6 +143,7 @@ your-repo/
 | `tracker.provider` | `github` | Where the board lives (`github` \| `linear`) |
 | `tracker.linear.team` / `.states` | unset | Linear team key and raw-status → workflow-state map |
 | `worktrees.provider` | `claude` | Isolated workspace provider (`claude` \| `orca` \| `conductor`) |
+| `worktrees.seed_files` | `[]` | Gitignored paths (e.g. `.env.local`) copied from the primary repo root into each worker's worktree |
 | `runners.executor` / `runners.reviewer` | `{ runner: claude, model: sonnet, effort: medium }` | Engine per role (`claude` \| `codex`) |
 | `runners.adversarial_reviewer` | unset | Optional second reviewer from another model family, comments only |
 | `runners.codex_command` | `codex exec` | Headless invocation template for the codex runner |

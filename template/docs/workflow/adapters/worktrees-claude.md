@@ -24,6 +24,42 @@ Fresh worktrees start without `node_modules` (or your stack's equivalent). Two o
   new worktree reuses the parent's install; or
 - let the worker run `commands.install` in its preflight.
 
+## Gitignored files (`worktrees.seed_files`)
+
+A worktree is a checkout of tracked files only. Gitignored ones — `.env.local` above all — are **not**
+inherited, so `commands.dev` and any env-dependent test fails in a fresh worktree while passing in
+the primary checkout. `symlinkDirectories` doesn't cover this: it takes directories, not files.
+
+There is no post-create setup hook to lean on either. Claude Code's `WorktreeCreate` hook *replaces*
+worktree creation (it must create the directory and echo its path — it exists for non-git VCS), so
+using it to seed env would mean owning worktree creation for every dispatch. Seeding is therefore
+raw's own preflight step, driven by `raw.config.yml` → `worktrees.seed_files`.
+
+**Preflight procedure** (step 2 of `auto-executor`; empty or unset list = skip entirely):
+
+```bash
+# The primary repo's .git is shared by every linked worktree, so its parent is
+# the primary root — no path has to be passed in by the orchestrator.
+PRIMARY=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
+
+# For each entry in worktrees.seed_files:
+[ -e "<path>" ] && continue                     # worktree already has one — never clobber it
+[ -e "$PRIMARY/<path>" ] || exit_blocked        # see below
+mkdir -p "$(dirname "<path>")"
+cp "$PRIMARY/<path>" "<path>"
+```
+
+Rules the worker does not get to bend:
+
+- **Source is the primary repo root only.** Never another agent's worktree — parallel workers hold
+  half-written state, and a sibling's env is not a contract.
+- **Missing at the source → `BLOCKED: worktrees.seed_files entry <path> not found at the primary
+  repo root`.** Never synthesize an env file, and never fill a value in to get past a failing test.
+- **Never staged.** These paths are gitignored, so they stay out of the diff by construction; if one
+  turns up in `git status`, it isn't ignored and doesn't belong in `seed_files`.
+- **Delete before reporting status.** Every dispatch re-seeds, and a worktree that produced commits
+  is not auto-removed by the harness — leaving credentials in it is the failure mode.
+
 ## Parallelism
 
 `autopilot.parallel > 1` dispatches N agents in one turn, each with its own worktree. They share the

@@ -68,6 +68,14 @@ tracker:
 # How isolated workspaces are created for workers.
 worktrees:
   provider: claude # claude | orca | conductor (experimental)
+  # Gitignored files a fresh worktree needs but cannot inherit — env files above
+  # all. Each path is copied from the primary repo root into the worktree during
+  # the worker's preflight. Paths are repo-relative; they stay gitignored, so
+  # they never enter a diff. Empty = nothing is copied.
+  # Required by the evidence gate below whenever commands.dev needs env to boot.
+  seed_files: []
+  # EXAMPLE:
+  # seed_files: [.env.local]
 
 # Which engine runs each role. `bindings` above picks a *skill*; `runners`
 # picks an *engine*. Claude models map to the Agent-tool model override (the
