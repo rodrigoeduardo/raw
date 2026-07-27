@@ -38,9 +38,13 @@ jobs:
             exit 0
           fi
 
+          # Body goes through a heredoc on stdin: an unindented continuation line
+          # would terminate this block scalar and make the workflow file invalid.
           gh issue create \
             --title "raw workflow update available ($INSTALLED -> $LATEST)" \
-            --body "Installed raw workflow version is \`$INSTALLED\`; latest is \`$LATEST\`.
+            --label "auto:hold" \
+            --body-file - <<EOF
+          Installed raw workflow version is \`$INSTALLED\`; latest is \`$LATEST\`.
 
-Run \`npx github:rodrigoeduardo/raw update\` (add \`--dry-run\` first to preview). Files you've edited locally are skipped by default, not overwritten." \
-            --label "auto:hold"
+          Run \`npx github:rodrigoeduardo/raw update\` (add \`--dry-run\` first to preview). Files you've edited locally are skipped by default, not overwritten.
+          EOF
