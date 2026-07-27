@@ -128,6 +128,19 @@ Installs are plain copied files, not a managed dependency, so raw tracks drift i
 
 ## History
 
+**2026-07-27 — worktree env seeding, template CI.** Two defects from a real autopilot run. The
+evidence gate's `commands.dev` cannot start in a fresh worktree, because a worktree is a checkout of
+*tracked* files and env files are gitignored — so `evidence.ui_screenshot: auto` was unsatisfiable
+on any repo whose dev server needs env, and workers improvised (one copied env out of a sibling
+worker's worktree). Fixed declaratively with `worktrees.seed_files`, copied from the primary repo
+root during the worker's preflight and deleted before it reports. Not a harness hook: Claude Code's
+`worktree.symlinkDirectories` takes directories rather than files, and its `WorktreeCreate` hook
+*replaces* worktree creation rather than extending it, so seeding is raw's own step. Separately,
+`raw-update-check.yml` had never run anywhere — an unindented line inside its `run: |` block
+terminated the block scalar, and GitHub reports an unparseable workflow as a failed 0s run on every
+push. Nothing in this repo could catch that, since `template/.github/workflows/` is inert here; a
+root `ci.yml` now parses every shipped YAML file and smoke-tests `raw init`.
+
 **2026-07-26 — waves, evidence, reconciliation, adapters.** Absorbed the lessons of a larger
 production run of the same shape of system: explicit dependency DAG + wave table (as reporting, over
 a re-derived frontier), richer ticket template ("the ticket is the prompt") and explicit planner
