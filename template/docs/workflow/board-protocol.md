@@ -15,6 +15,8 @@ This document describes the protocol in GitHub terms, because that is the defaul
 
 Workflow configuration (gates, labels, commands) lives in `raw.config.yml` at the repo root. Missing file or key = the defaults documented there (all gates `human`, tracker `github`).
 
+**Integration branch.** Workers cut their branch from — and PRs target — the *integration branch*: `raw.config.yml` → `git.integration_branch` (unset ⇒ the repo's git default branch, `gh repo view --json defaultBranchRef`). Wherever this protocol says "the default branch" — the base for a worktree, the merge-gate "behind" check, "never commit to the default branch" — it means this configured integration branch. Set it whenever development integrates somewhere other than the git default (e.g. a stale `main` release branch vs an active `develop`); a worker cut from the wrong base builds against missing code and opens its PR against the wrong target.
+
 ## Labels
 
 ### Status (exactly one per open issue)
@@ -100,7 +102,7 @@ issue's timeline; a restarted orchestrator re-derives the same count.
 - **Blocked?** Relabel `status:blocked`, comment precisely what is needed, exit cleanly. Never leave a half-finished PR.
 - **Too big?** No PR. Comment a proposed split on the issue and relabel `status:proposed`.
 - **Stale claims**: a claim comment older than 24h with no pushes to the task branch may be taken over — comment the takeover, then re-claim.
-- **Fresh default branch**: rebase/branch from the up-to-date default branch at the start of every iteration. Unresolvable conflict → PR comment + `status:blocked`.
+- **Fresh integration branch**: rebase/branch from the up-to-date integration branch (`git.integration_branch`, above) at the start of every iteration. Unresolvable conflict → PR comment + `status:blocked`.
 
 ## Dispatch
 

@@ -22,6 +22,16 @@ commands:
   deploy: # e.g. npm run deploy — leave unset if CD deploys main automatically
   dev: # e.g. npm run dev — run the app locally; required by the evidence gate below
 
+# Git integration branch — the branch workers cut from, PRs target, and the
+# merge gate measures "behind" against. Unset ⇒ the repo's git default branch
+# (`gh repo view --json defaultBranchRef`). Set this whenever development
+# integrates somewhere other than the default branch: here `main` is a stale
+# release branch and every migration spec/commit lives on `develop`, so a worker
+# cut from the default `main` would build against missing specs. Every skill and
+# adapter reads this key in place of "<default-branch>".
+git:
+  integration_branch: develop
+
 # Domain area labels (area:*) used on issues. Define your own; these are examples.
 # /configure can create them on GitHub for you.
 labels:
@@ -64,6 +74,14 @@ tracker:
       in_progress: In Progress
       in_review: In Review
       blocked: Blocked
+    # Who moves the Linear issue to Done on PR merge.
+    #   integration — the native Linear↔GitHub integration does it (default
+    #                 assumption); the orchestrator only verifies afterward.
+    #   manual      — the integration is NOT installed here, so the orchestrator
+    #                 transitions the issue itself on merge and skips the probe.
+    # This workspace has no active integration (every merge this far left the
+    # issue in "In Review" until the orchestrator moved it), so: manual.
+    close_on_merge: manual
 
 # How isolated workspaces are created for workers.
 worktrees:

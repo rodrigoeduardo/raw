@@ -16,9 +16,26 @@ Do exactly one PR per dispatch, report a machine-readable status, then stop.
 
 **REQUIRED READING:** `docs/workflow/pr-babysit.md` (the procedure you run), `review-policy.md`,
 `git-conventions.md`. Read `raw.config.yml` for `commands`, `autopilot.max_fix_cycles`, `runners`.
+When `worktrees.provider` is not `claude`, also read `docs/workflow/adapters/worktrees-<provider>.md`
+before dispatching any sub-worker.
 
 Input: a PR number, and any run-specific facts the orchestrator passes down (e.g. "#N merged this
-run and the default branch already contains `<what>`").
+run and the integration branch already contains `<what>`").
+
+## Derive from config, don't wait to be told
+
+The dispatch is terse (a PR number + run-specific facts). Everything stable you read yourself:
+
+- **Integration branch = `raw.config.yml` → `git.integration_branch`** (unset ⇒ repo git default).
+  The merge-gate "behind the default branch" check and any sync/rebase you do are against
+  `origin/<that>`, never `main` unless that *is* the integration branch.
+- **Dispatching an `auto-reviewer` / FIX `auto-executor` under the orca provider:** launch via the
+  custom-CLI path in `worktrees-orca.md` with `claude --model <m> --dangerously-skip-permissions` —
+  **never a bare `claude`**, which boots interactive and hangs on its first `gh` permission prompt
+  while `wait --for tui-idle` reports the hang as "finished". Base sub-worktrees on the integration
+  branch (a FIX executor then checks out the PR branch inside it).
+- **Reap every child worktree you spawn** once the PR resolves (`orca worktree rm --force`);
+  sub-agents do not delete worktrees unasked.
 
 ## Procedure
 

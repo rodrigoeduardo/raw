@@ -57,14 +57,24 @@ an **external blocker**: the dependent gets no wave number, is never claimed, an
 
 ## Close-on-merge
 
-Prefer Linear's native GitHub integration over doing it yourself:
+Who moves the issue to Done on merge is set by `tracker.linear.close_on_merge` (default
+`integration`):
 
-- branch naming under this tracker embeds the Linear id — `feat/ENG-123-user-signup-form` (this is
-  the `type/<id>-<slug>` rule in `../git-conventions.md`, with the Linear id as the id);
-- the PR body says `Fixes ENG-123` in addition to the usual summary.
+- **`integration`** — Linear's native GitHub integration does it. Keep the two hooks it needs:
+  - branch naming embeds the Linear id — `feat/ENG-123-user-signup-form` (the `type/<id>-<slug>`
+    rule in `../git-conventions.md`, with the Linear id as the id);
+  - the PR body says `Fixes ENG-123` in addition to the usual summary.
 
-The integration then moves the issue on merge. If the integration is not installed, the orchestrator
-transitions the issue itself on the merge event — the same write, just not free.
+  The orchestrator only *verifies* the move afterward.
+- **`manual`** — the integration is **not** installed, so the orchestrator transitions the issue to
+  the `done`/completed state itself on the merge event (`update_issue`) and **skips the "did it
+  move?" probe**. Set this to save a wasted round-trip per merge when you already know the
+  integration is absent: keep `Fixes ENG-123` in the PR body regardless (harmless, and it's what
+  makes the switch back to `integration` free later).
+
+> Detecting which you have: merge a PR and look at the issue. If it stays in the `in_review` state,
+> the integration is not moving it — set `close_on_merge: manual`. (Every merge in this repo's first
+> autopilot run left the issue in "In Review" until the orchestrator moved it — hence `manual` here.)
 
 ## What does NOT change
 

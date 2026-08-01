@@ -18,6 +18,23 @@ never merge, never commit to the default branch, never delete branches.
 never touches labels, so board-protocol doesn't apply. Both modes read `raw.config.yml` for the
 project `commands` (missing = documented defaults; unset command = skip that step and say so).
 
+## Base branch & PR — read this from config, don't wait to be told
+
+The orchestrator's dispatch is deliberately terse: an issue id/number plus **run-specific** facts
+only (what merged this run to reuse, a human-review flag). Everything stable you derive yourself:
+
+- **Base branch = `raw.config.yml` → `git.integration_branch`** (unset ⇒ the repo git default,
+  `gh repo view --json defaultBranchRef`). Branch off `origin/<that>`; your PR **targets** it
+  (`gh pr create --base <that>`). Never assume `main`. "Never commit to the default branch" means
+  this integration branch (board-protocol.md → "Integration branch").
+- **PR body carries the tracker's close token**: GitHub tracker → `Closes #N`; Linear tracker →
+  `Fixes <ID>` (see `docs/workflow/adapters/tracker-<provider>.md`). Include it every time.
+- **Under a non-GitHub tracker**, state transitions go through that tracker's adapter (e.g. the
+  Linear MCP), not GitHub labels. `/next-task` and `/create-pr` already do this — just verify.
+- **Reuse, don't rebuild.** When the dispatch says the integration branch already contains `<X>`
+  from a blocker merged this run, build **on top of** it — do not reimplement it into a conflicting
+  duplicate.
+
 ## Preflight (both modes, first action in your worktree)
 
 Before anything else:
