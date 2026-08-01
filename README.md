@@ -135,6 +135,7 @@ your-repo/
 | `commands.install/lint/test/test_all` | unset | Your stack's commands; unset = step skipped, never guessed |
 | `commands.deploy` | unset | Deploy command; unset = assume CD on the default branch |
 | `commands.dev` | unset | Run the app locally — required by the evidence gate (needs env? see `.worktreeinclude`) |
+| `git.integration_branch` | unset | Branch workers cut from, PRs target, merge gate measures "behind" against; unset = repo's git default branch |
 | `labels.areas` | `[]` | Domain `area:*` labels for issues |
 | `specs_dir` | `docs/specs` | Planner input tree |
 | `bindings.tdd` / `bindings.verification` | superpowers skills | Which skill fulfills each role — swappable |
@@ -142,6 +143,7 @@ your-repo/
 | `autopilot.max_fix_cycles` | `3` | Review→fix rounds before `status:blocked` |
 | `tracker.provider` | `github` | Where the board lives (`github` \| `linear`) |
 | `tracker.linear.team` / `.states` | unset | Linear team key and raw-status → workflow-state map |
+| `tracker.linear.close_on_merge` | `integration` | Who moves the Linear issue to Done on merge (`integration` = native Linear↔GitHub sync; `manual` = orchestrator transitions it itself) |
 | `worktrees.provider` | `claude` | Isolated workspace provider (`claude` \| `orca` \| `conductor`) |
 | `worktrees.seed_files` | `[]` | Gitignored paths copied into a worker's worktree during preflight — for the `orca`/`conductor` providers, or when a missing path should block. Under `claude`, edit `.worktreeinclude` instead |
 | `runners.executor` / `runners.reviewer` | `{ runner: claude, model: sonnet, effort: medium }` | Engine per role (`claude` \| `codex`) |
