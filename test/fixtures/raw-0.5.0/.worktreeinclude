@@ -1,0 +1,24 @@
+# Gitignored files copied into every new Claude Code worktree.
+#
+# A worktree is a checkout of *tracked* files, so a fresh one has no env file
+# and `commands.dev` cannot start in it — which makes the evidence gate
+# (docs/workflow/review-policy.md) unsatisfiable. Claude Code reads this file at
+# worktree creation and copies the matching paths in from the main repo.
+#
+# Gitignore syntax, one pattern per line. Only paths that are actually
+# gitignored *and* present in the main checkout can match, so a pattern for a
+# file you don't have is simply a no-op — and no tracked file can be pulled in
+# by mistake.
+#
+# Applies to the `claude` worktree provider only. Under `orca` or `conductor`,
+# use `worktrees.seed_files` in raw.config.yml instead — see
+# docs/workflow/adapters/worktrees-claude.md.
+
+.env.local
+.env.*.local
+
+# EXAMPLES — uncomment what your stack needs:
+# .env
+# .env.development
+# certs/
+# .npmrc

@@ -58,6 +58,9 @@ jobs:
             ' "$f"
           done
 
+      - name: Unit and workflow invariant tests
+        run: npm test
+
       - name: CLI smoke test — init into a scratch repo
         run: |
           set -euo pipefail
@@ -70,6 +73,11 @@ jobs:
           # and a missing .worktreeinclude fails silently at worktree creation.
           test -f "$target/.worktreeinclude"
           grep -qx '.env.local' "$target/.worktreeinclude"
+          test -f "$target/.claude/skills/build-issue/SKILL.md"
+          test -L "$target/.agents/skills"
+          test "$(readlink "$target/.agents/skills")" = '../.claude/skills'
+          rerun_output=$(node bin/cli.mjs init "$target")
+          grep -q '.agents/skills compatibility already current' <<< "$rerun_output"
           # Installed copies are byte-identical, so validate what a consumer gets.
           for f in "$target"/.github/workflows/*.yml; do
             npx --yes js-yaml "$f" > /dev/null
