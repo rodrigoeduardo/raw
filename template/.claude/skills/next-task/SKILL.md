@@ -1,56 +1,36 @@
 ---
 name: next-task
-description: Use when asked to pick up work from the board — "grab the next task", "work the board", a specific issue number to build, or when running as a loop/scheduled dispatcher iteration.
+description: Select and claim one eligible board issue, then delegate its implementation to /build-issue. Supports an explicit issue id without changing the single canonical build path.
 ---
 
-# Next Task (builder)
+# Next Task (dispatcher)
 
-Claim one ready board issue, build it with TDD, deliver a PR. **One task per invocation.** Never merge, never commit to the default branch — the merge gate (`raw.config.yml` → `gates.merge`) is not yours.
+Select and claim one issue, then delegate implementation to `/build-issue`. **One task per
+invocation.** This skill owns work selection; it does not contain a second implementation path.
 
-**REQUIRED READING:** `docs/workflow/board-protocol.md` and `docs/workflow/git-conventions.md`. Follow both exactly. Read `raw.config.yml` for commands and bindings (missing file = documented defaults).
-
-**Adapters.** The board commands below are the `tracker.provider: github` spelling (the default). Under any other tracker, read `docs/workflow/adapters/tracker-<provider>.md` and perform the equivalent operation — same protocol, different call. PRs are always GitHub, so everything from the branch onward is unchanged.
+**REQUIRED READING:** `docs/workflow/board-protocol.md` and `raw.config.yml`. Under a non-GitHub
+tracker, read `docs/workflow/adapters/tracker-<provider>.md` and perform equivalent operations.
 
 ## Procedure
 
-1. **Service existing obligations first** (before any new claim):
-   - Own open PRs with human or AI change-requests → address them now.
-   - PRs labeled `ai-review:requested` → run the `review-pr` skill on each.
-
-2. **Pick.** `gh issue list --label "status:ready" --state open --json number,title,body,createdAt`
-   Claimable = every `Depends on #N` line points to a **closed** issue AND "Human actions" is "None" or fully checked. Pick the oldest claimable. Invoked as `/next-task <issue#>` → use that issue (still verify claimability).
-   Nothing claimable → report and stop (loop stop condition).
-   ≥3 PRs already `status:in-review` → report and stop (review is the bottleneck).
-
-3. **Claim.**
-   ```bash
-   gh issue edit <n> --remove-label "status:ready" --add-label "status:in-progress"
-   gh issue comment <n> --body "Claimed by <session-id> at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-   ```
-   Existing claim comment from another session → skip to next issue, unless stale (>24h, no pushes to its branch): comment a takeover, then claim.
-
-4. **Build.**
-   - Branch off the fresh default branch: `type/<issue#>-<slug>` (e.g. `feat/23-user-signup-form`).
-   - **REQUIRED SUB-SKILL:** the TDD skill bound in `raw.config.yml` (`bindings.tdd`, default `superpowers:test-driven-development`).
-   - Commit on the fly per git-conventions.md; push early; open a **draft PR** after first push.
-   - Scope = the issue's Requirements checklist. Respect "Out of scope". Follow-ups go in PR Notes, never in the diff.
-
-5. **Deliver.**
-   - **REQUIRED SUB-SKILL:** the verification skill bound in `raw.config.yml` (`bindings.verification`, default `superpowers:verification-before-completion`). Run the configured `commands.lint` and `commands.test_all` — green before handoff.
-   - **Evidence gate** (`evidence.ui_screenshot`, default `auto` — see review-policy.md). Active when the issue says `**User-visible:** yes` or carries a UI-ish `area:*` label (`auto`), or always (`required`). Capture follows `evidence.driver` — default `playwright`, full procedure in `docs/workflow/adapters/evidence-playwright.md`: start `commands.dev`, take the URL it prints, drive the flow (Playwright MCP, else `npx playwright`), commit the image to `docs/evidence/<issue#>-<slug>.png` and link it under "Requirements coverage". A passing test is not evidence that anything rendered. `commands.dev` unset, no URL, or no usable driver → **BLOCKED** (label + comment) with that reason, never a silent skip.
-   - Use the `create-pr` skill to finalize (template, ready state).
-   - `gh issue edit <n> --remove-label "status:in-progress" --add-label "status:in-review"`
-   - Stop.
-
-## Blocked or too big
-
-- **Blocked** (missing info, spec gap, env failure): label `status:blocked`, comment exactly what is needed, push WIP to the branch, stop. Never a half-finished ready PR.
-  Before you do: check the issue timeline. If this issue has already been blocked once on an **execution** failure (not a launch/infra error), it is a **spec defect** — apply the two-strikes rule from board-protocol.md instead: relabel `status:proposed` and comment `needs rewrite: <what was ambiguous>`. Rewriting is the planner's job, not yours.
-- **Too big** (discovered mid-build): no PR; comment a proposed split; relabel `status:proposed`; stop.
+1. **Service existing obligations first.** For owned open PRs with change requests or requested AI
+   review, invoke `/babysit-pr <PR#>` or `/review-pr <PR#>` as appropriate. Do not implement PR
+   fixes inside this dispatcher.
+2. **Pick.** With no argument, list ready issues and choose the oldest claimable issue according to
+   `board-protocol.md`. With `/next-task <explicit-issue>`, fetch only that issue and validate its
+   readiness, dependencies, Human actions, holds, and existing claim. Nothing claimable, or three
+   or more PRs already in review → report and stop.
+3. **Claim.** Atomically move only the selected issue from `status:ready` to
+   `status:in-progress` and add the timestamped session claim. A live claim from another session →
+   skip (or stop for explicit input); a stale claim follows the documented takeover rule.
+4. **Delegate implementation to `/build-issue <issue>`.** Pass the exact selected issue id and any
+   run-specific fact the builder cannot derive, then return its status. `/build-issue` owns branch,
+   TDD, verification, evidence, PR finalization, and the exact issue's completion transition.
+5. Stop after that issue. Never select another issue in the same invocation.
 
 ## Red flags — stop
 
-- Claiming while own PRs have unaddressed change-requests
-- Working two issues in one invocation
-- Expanding scope beyond the Requirements checklist
-- Merging, or committing to the default branch
+- Implementing code, creating the task branch, or duplicating `/build-issue` instructions here.
+- Claiming while owned PR obligations remain unresolved.
+- Claiming anything not ready and claimable, or working two issues in one invocation.
+- Merging, committing to the integration branch, or recursively invoking `/next-task`.
