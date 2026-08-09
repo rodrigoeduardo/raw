@@ -10,7 +10,8 @@ so the prompt stays small: name the job, point at the skill, let it read the res
 runners:
   executor: { runner: claude, model: sonnet, effort: medium }
   reviewer: { runner: claude, model: sonnet, effort: medium }
-  babysitter: { runner: claude, model: opus, effort: medium }
+  babysitter: { runner: claude, model: sonnet, effort: low }
+  reconciler: { runner: claude, model: opus, effort: medium }
 ```
 
 - **model** → the Agent-tool model override at dispatch. The agent frontmatter's `model:` is the
@@ -24,12 +25,13 @@ runners:
 ## Dispatch
 
 Sub-agent path (with `worktrees.provider: claude`): dispatch `auto-executor` / `auto-babysitter` /
-`auto-reviewer` with the mode and its inputs. The agent reads `docs/workflow/*` and
+`auto-reviewer` / conditional `auto-reconciler` with the mode and its inputs. The agent reads `docs/workflow/*` and
 `raw.config.yml` itself — do **not** inline the workflow into the prompt; a living doc beats a copy
 that ages.
 
 Who dispatches whom: the orchestrator dispatches `auto-executor` (BUILD) and `auto-babysitter`;
-the babysitter dispatches `auto-reviewer` and `auto-executor` (FIX) for its own PR.
+the babysitter dispatches `auto-reviewer`, `auto-executor` (FIX), and — only for a batch of
+substantive blocking findings — `auto-reconciler`.
 
 The prompt carries only what isn't already written down:
 
@@ -46,17 +48,17 @@ The agent's final status line, in-band:
 ```
 DONE pr=#<n> branch=<name> | DONE_WITH_CONCERNS … | BLOCKED issue=#<n> reason=… | TOO_BIG issue=#<n>
 APPROVED pr=#<n> | CHANGES_REQUESTED pr=#<n> blocking=<count>
+RECONCILED pr=#<p> confirmed=<n> rebutted=<n> escalated=<n> | NEEDS_CONTEXT pr=#<p> reason=…
 MERGE_READY pr=#<n> rounds=<n> rebutted=<n> inline=<n> dispatched=<n> [review=skipped-trivial]
 BLOCKED pr=#<n> rounds=<n> reason=… | ESCALATE pr=#<n> threads=<n> reason=…
 ```
 
 ## Model tiers
 
-Finding reconciliation (`../pr-babysit.md` §3) is the judgement call this workflow hangs on:
-deciding whether a review finding actually reproduces, before paying a fix round for it. It lives
-in the **babysitter**, which is why `runners.babysitter` defaults to opus while the executor and
-reviewer default to sonnet. Those two do bounded work against a written spec — build to the
-acceptance criteria, judge a diff against them — and a cheaper model does it fine.
+CI/status/fingerprint polling is mechanical, so `runners.babysitter` defaults to sonnet/low.
+Finding reconciliation (`../pr-babysit.md` §3) is the judgment call that deserves opus/medium, so
+it lives in the conditional `runners.reconciler` role. No substantive blocking findings means zero
+reconciler invocations; all findings for one PR round are batched into one bounded call.
 
 The orchestrator's own model is **not** configurable from here — a skill can't switch the model of
 the session it's running in. It's a launch-time choice by the human. It no longer reads diffs or CI

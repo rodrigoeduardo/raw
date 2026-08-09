@@ -44,18 +44,9 @@ The issue's **Expected behavior** and **Test scenarios** say what to drive. Scre
 demonstrates the acceptance criteria — the filled form after validation fires, not the empty page.
 Viewport **1280×800** unless the issue's behavior is explicitly about another size.
 
-**Preferred — Playwright MCP**, when the session has those tools. Nothing is installed into the
-target repo:
-
-```
-browser_navigate <url>            → the route under test
-browser_click / browser_type …    → the interactions the scenarios describe
-browser_take_screenshot           → save to the path in §4
-```
-
-**Fallback — Playwright CLI**, when there's no MCP server. Check `npx playwright --version` first;
-if that fails too → `BLOCKED: no playwright driver available (no MCP server, npx playwright not
-installed)`.
+**Preferred — Playwright CLI.** Executor-owned evidence must be deterministic and bounded rather
+than an open-ended browser/MCP loop inside the coding context. Check `npx playwright --version`
+first; if it fails → `BLOCKED: no playwright driver available`.
 
 ```bash
 # static route, no interaction needed:
@@ -67,6 +58,10 @@ npx playwright test <scratch-spec> --reporter=line
 
 The scratch spec is a throwaway in your scratchpad — it is **not** part of the diff. Tests that
 belong to the feature are written under TDD like any other test; this is a capture script.
+
+Playwright MCP is not a default executor dependency. A future isolated evidence worker may use it
+only with fresh context, the exact issue and capture instructions, a cheap model, and a hard stop
+after producing evidence; do not create that extra worker merely to move an unbounded loop.
 
 If the flow can't be driven (element never appears, auth wall with no test credentials, unhandled
 crash) → `BLOCKED` with the specific step that failed. Don't ship a screenshot of the wrong state.
@@ -112,7 +107,7 @@ credentials in it. Leave `.worktreeinclude` copies alone; those are the harness'
 | `commands.dev` unset | `BLOCKED: evidence gate active but commands.dev is unset` |
 | A `worktrees.seed_files` path is missing at the primary repo root | `BLOCKED: worktrees.seed_files entry <path> not found at the primary repo root` |
 | No URL within 60s | `BLOCKED: dev server never printed a URL` |
-| No MCP server and no `npx playwright` | `BLOCKED: no playwright driver available` |
+| `npx playwright` unavailable | `BLOCKED: no playwright driver available` |
 | Flow can't be driven | `BLOCKED: could not drive <step> — <what happened>` |
 
 ## Repo weight

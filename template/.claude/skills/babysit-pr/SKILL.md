@@ -10,7 +10,8 @@ fixed or rebutted, feedback triaged, checklist satisfied. One PR per invocation.
 
 **REQUIRED READING:** `docs/workflow/pr-babysit.md` (the procedure — this skill is its
 single-PR entry point), `docs/workflow/review-policy.md`, `docs/workflow/git-conventions.md`.
-Read `raw.config.yml` for `commands`, `gates.merge`, `autopilot.max_fix_cycles`, `runners`.
+Read `raw.config.yml` for `commands`, `gates.merge`, `autopilot.max_fix_cycles`, and `runners`.
+Older configs without `runners.reconciler` use `{ runner: claude, model: opus, effort: medium }`.
 
 ## Mode
 
@@ -42,9 +43,14 @@ don't run `/babysit-pr` by hand on a PR an autopilot run is currently holding.
 4. **Feedback fingerprint** (§2) — hash comments + reviews + inline threads. A fingerprint you
    haven't triaged means the PR is not ready, whatever the labels say.
 
-5. **Reconcile** (§3) — for each blocking finding, open the code and confirm it reproduces **before**
-   changing anything. Reproduces → fix it. Doesn't → reply with the evidence and leave the code
-   alone. Ambiguous / scope-expanding → escalate to the human, leave the thread open.
+5. **Reconcile only when needed** (§3). Collect all substantive blocking findings. If there are no
+   substantive blocking findings, do not dispatch a reconciler; continue mechanical
+   CI/status/fingerprint handling. If findings exist, make one bounded invocation using
+   `runners.reconciler` for the whole batch. Give it only the relevant diff, acceptance criteria,
+   findings, and targeted code excerpts. Confirmed → fix. Rebutted → reply with evidence and leave
+   correct code alone. Escalated → leave open for a human. Never pay one strong-model invocation
+   per finding. `NEEDS_CONTEXT` is also an escalation: report the missing item, leave the threads
+   open, and do not invoke the reconciler a second time.
 
 6. **Fix** (§4) — confirmed reasons only. Two ways, pick one and say which:
    - **Inline** — only when the fix fits **all** of: one file, no new test needed, no dependency
@@ -56,8 +62,8 @@ don't run `/babysit-pr` by hand on a PR an autopilot run is currently holding.
      it runs TDD and its own preflight in its own worktree.
 
    The ceiling is deliberate. Fixing inline saves a worktree provision and a cold start, which is
-   real latency — but it does the work at the orchestration tier's model rather than the executor's,
-   so it stops paying off the moment the fix is more than a small edit. When in doubt, dispatch.
+   real latency, but it stops paying off the moment the fix is more than a small edit. When in
+   doubt, dispatch.
 
    Then re-request review if the PR is under AI review: `gh pr edit <p> --add-label "ai-review:requested"`.
    A re-review is a **delta**: pass the reviewer the last reviewed SHA, the previous round's

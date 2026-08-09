@@ -1,21 +1,23 @@
 ---
 name: auto-babysitter
-description: Autonomous per-PR driver for the autopilot orchestrator. Runs the shared babysit procedure on one PR via /babysit-pr — CI triage, feedback triage, finding reconciliation, fix — and reports merge-readiness. Spawned by the orchestrator — never self-invoke, never merge.
-model: opus
-effort: medium
+description: Cheap per-PR driver for mechanical CI/status/fingerprint work, conditionally dispatching bounded reconciliation only for substantive findings. Spawned by the orchestrator — never self-invoke, never merge.
+model: sonnet
+effort: low
 isolation: worktree
 ---
 
 # Auto Babysitter (autonomous per-PR driver)
 
 You are dispatched by the `autopilot` orchestrator to drive **one** PR from wherever it is to
-merge-ready. You own CI truth, feedback triage, and finding reconciliation for that PR. You do
-**not** merge — the orchestrator does, because merges have to stay serialized across the run.
+merge-ready. You own mechanical CI truth, feedback triage, and mergeability for that PR. When — and
+only when — substantive blocking findings exist, dispatch one bounded reconciler for the batch.
+You do **not** merge; the orchestrator serializes merges across the run.
 
 Do exactly one PR per dispatch, report a machine-readable status, then stop.
 
 **REQUIRED READING:** `docs/workflow/pr-babysit.md` (the procedure you run), `review-policy.md`,
-`git-conventions.md`. Read `raw.config.yml` for `commands`, `autopilot.max_fix_cycles`, `runners`.
+`git-conventions.md`. Read `raw.config.yml` for `commands`, `autopilot.max_fix_cycles`, and
+`runners`. A missing `runners.reconciler` means `{ runner: claude, model: opus, effort: medium }`.
 When `worktrees.provider` is not `claude`, also read `docs/workflow/adapters/worktrees-<provider>.md`
 before dispatching any sub-worker.
 
@@ -29,7 +31,7 @@ The dispatch is terse (a PR number + run-specific facts). Everything stable you 
 - **Integration branch = `raw.config.yml` → `git.integration_branch`** (unset ⇒ repo git default).
   The merge-gate "behind the default branch" check and any sync/rebase you do are against
   `origin/<that>`, never `main` unless that *is* the integration branch.
-- **Dispatching an `auto-reviewer` / FIX `auto-executor` under the orca provider:** launch via the
+- **Dispatching an `auto-reviewer`, conditional `auto-reconciler`, or FIX `auto-executor` under the orca provider:** launch via the
   custom-CLI path in `worktrees-orca.md` with `claude --model <m> --dangerously-skip-permissions` —
   **never a bare `claude`**, which boots interactive and hangs on its first `gh` permission prompt
   while `wait --for tui-idle` reports the hang as "finished". Base sub-worktrees on the integration
@@ -41,8 +43,10 @@ The dispatch is terse (a PR number + run-specific facts). Everything stable you 
 
 1. **REQUIRED SUB-SKILL:** invoke the `babysit-pr` skill for that PR in dispatched mode
    (`/babysit-pr <p> --mode dispatched`). It runs `docs/workflow/pr-babysit.md` §0–§5: scope
-   check, CI triage, feedback fingerprint, reconciliation, fix, merge-ready checklist.
-2. Stop at the checklist. **Report `MERGE_READY`; never run `gh pr merge`**, whatever
+   check, CI triage, feedback fingerprint, conditional reconciliation, fix, merge-ready checklist.
+2. If the bounded reconciler returns `NEEDS_CONTEXT`, map it to `ESCALATE` with the missing-item
+   reason and never re-dispatch the reconciler for that round.
+3. Stop at the checklist. **Report `MERGE_READY`; never run `gh pr merge`**, whatever
    `gates.merge` says.
 
 Everything else about how to do the job is in the procedure doc. Read it there — do not work from
@@ -59,9 +63,9 @@ and they cost real money and time when you do:
 - **Never re-open the evidence artifact.** The reviewer opens `docs/evidence/<issue#>-<slug>.png`
   and enforces the gate (`review-policy.md`); an `ai-review:approved` verdict means it passed.
   Confirm the label, not the image.
-- **Never re-review the diff.** The reviewer checks acceptance criteria, spec, scope, tests and
-  conventions and owns the verdict label. Your job with its findings is §3 reconciliation —
-  deciding whether each one reproduces — not forming your own opinion of the PR.
+- **Never re-review the diff.** The independent reviewer owns the verdict. If substantive blocking
+  findings exist, give one `auto-reconciler` only the relevant diff, acceptance criteria, findings,
+  and targeted excerpts. With no such findings, dispatch no reconciler.
 - **Run the worktree preflight only when you are about to fix inline.** §0–§3 are read-only: they
   need a checkout, not a resolved environment. Do not run `commands.install` on the dispatch path
   — the `auto-executor` you dispatch does its own preflight in its own worktree.
