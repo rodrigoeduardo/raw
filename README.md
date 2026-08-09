@@ -1,19 +1,19 @@
 # raw
 
-An installable agentic workflow for Claude Code, driven by your issue tracker. An AI planner proposes tasks as issues, AI builders pull them and deliver PRs, an AI reviewer checks the diffs, and you decide which gates stay human. GitHub Issues is the default; set `tracker.provider: linear` and the same skills run on Linear workflow states and `blockedBy` relations. Either way the tracker is the machine source of truth, so every state transition is auditable and any crashed agent can pick up where things left off.
+An installable agentic workflow for Claude Code and Codex, driven by your issue tracker. An AI planner proposes tasks as issues, AI builders pull them and deliver PRs, an independent AI reviewer checks the diffs, and you decide which gates stay human. GitHub Issues is the default; set `tracker.provider: linear` and the same skills run on Linear workflow states and `blockedBy` relations. Either way the tracker is the machine source of truth, so every state transition is auditable and any crashed agent can pick up where things left off.
 
-Everything is a plain file copied into your repo: skills, agent definitions, issue/PR templates, workflow docs, one config file. Small, hackable, no framework. Read a skill, disagree with it, rewrite it in place. `raw update` skips every file you've edited, so your version is the one that runs.
+Workflow content is plain files copied into your repo: skills, agent definitions, issue/PR templates, workflow docs, one config file. The only compatibility indirection is `.agents/skills`, which links Codex to the canonical Claude skill tree. Small, hackable, no framework. `raw update` skips every file you've edited, so your version is the one that runs.
 
 The other moving parts swap one config key at a time: worktree provider, executor and reviewer runners (Claude or Codex, per role), the TDD and verification skills, the screenshot driver, an optional second reviewer from another model family. See [Pluggability](#pluggability) for the full table. PRs stay on GitHub under every tracker.
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/raw-workflow-dark.svg">
-    <img alt="raw workflow: docs/specs feeds /plan-board, which files issues as status:proposed on the tracker. The promote gate moves them to ready; /next-task claims and builds one and /create-pr opens the PR. From there a per-PR babysitter takes over: /review-pr checks the diff against the acceptance criteria and findings are reconciled, with confirmed ones looped back as fixes. The merge gate sits outside the babysitter — the orchestrator merges — then the deploy gate runs and a run summary feeds new proposals back to the planner. Every box reads and writes the same tracker, and /autopilot spans the promote-to-deploy section." src="docs/assets/raw-workflow-light.svg" width="100%">
+    <img alt="raw workflow: autopilot or next-task selects and claims one issue, auto-executor invokes build-issue for targeted TDD and bounded CLI evidence, then an independent reviewer checks the PR. A cheap babysitter handles CI and status; only substantive findings trigger one bounded strong reconciler before a targeted fix." src="docs/assets/raw-workflow-light.svg" width="100%">
   </picture>
 </p>
 
-Every solid box is a skill you can invoke on its own; the dashed box is `/autopilot` composing the same skills end to end. Nothing is passed between them in chat — each one reads its state from the tracker and writes the result back. Source: [`docs/assets/raw-workflow.excalidraw`](docs/assets/raw-workflow.excalidraw).
+The diagram emphasizes context boundaries: solid boxes are normal stages; dashed reconciliation is conditional. Dispatchers hold board context, builders hold one issue, and the independent reviewer remains separate. Source: [`docs/assets/raw-workflow.excalidraw`](docs/assets/raw-workflow.excalidraw).
 
 ## Quickstart (2-minute setup)
 
@@ -23,7 +23,8 @@ Every solid box is a skill you can invoke on its own; the dashed box is `/autopi
 npx github:rodrigoeduardo/raw init
 ```
 
-2. In Claude Code, run `/configure`. It interviews you about human gates, project commands, and area labels, then writes `raw.config.yml` and creates the GitHub labels.
+2. In Claude Code run `/configure`; in Codex invoke `$configure`. RAW installs canonical skills
+   under `.claude/skills` and exposes them to Codex through `.agents/skills` without copying them.
 
 3. Write your specs in `docs/specs/` (skeletons with guidance are installed), then run `/plan-board`. Approve the drafted batch and it files the issues.
 
@@ -53,7 +54,10 @@ When a ticket fails twice, raw treats it as a spec defect instead of blaming the
 
 **The problem.** One long session tries to do planning, three tasks, and a refactor it noticed along the way. Context degrades, discipline degrades with it.
 
-**The fix.** `/next-task` runs one task per invocation. Claim the oldest ready issue (timestamped claim comment = concurrency lock), build it with TDD, deliver a template-compliant PR via `/create-pr`, stop. Run it by hand, in a loop, or on a schedule; the protocol is identical, and two dispatchers can't collide.
+**The fix.** Work selection and execution are separate. `/next-task` selects and claims one issue,
+then `/build-issue` performs the only implementation path: targeted context, TDD, verification,
+bounded evidence, PR, stop. Autopilot claims before dispatching `auto-executor`, which invokes
+`/build-issue` directly instead of scanning the board again. One issue ends one executor invocation.
 
 ### #3: Nobody reads the AI's PRs
 
@@ -63,7 +67,10 @@ When a ticket fails twice, raw treats it as a spec defect instead of blaming the
 
 Two things keep the review loop honest:
 
-- **Findings are reconciled before they become work.** A finding from raw's reviewer, a review bot, or a human is a claim about the code, and claims can be confidently wrong. The PR's babysitter opens the code and confirms each blocking finding reproduces; the ones that don't get a reply with the evidence and cost you nothing. Forwarding a hallucinated finding buys a full implementation round fixing a bug that doesn't exist.
+- **Findings are reconciled before they become work.** The default babysitter is cheap because
+  CI/status/fingerprint checks are mechanical. If substantive blocking findings exist, it batches
+  them into one bounded strong-model reconciler call. No findings means no reconciler; confirmed
+  findings alone reach a targeted fix.
 - **Evidence beats assertion on user-visible work.** A green test proves the logic ran, not that anything rendered. When an issue is marked user-visible, the builder screenshots the real running app driving the real flow, and the reviewer looks at it before the verdict. The gate is "someone besides the worker looked", not "a screenshot exists". Headless repos never notice it.
 
 `/babysit-pr` is that whole per-PR procedure — CI triage (a cancelled run is not a failure), a feedback fingerprint so a comment arriving after green CI still blocks merge, reconciliation, fix, merge-ready. Run it yourself on a single PR when you don't want the whole board; `/autopilot` runs the same thing, one babysitter per PR, and keeps only the merge.
@@ -95,10 +102,11 @@ Defaults are GitHub Issues + Claude Code worktrees + Claude runners, and if that
 | Axis | Config | Options |
 |---|---|---|
 | Tracker | `tracker.provider` | `github` (default) · `linear` (native `blockedBy` relations, workflow-state mapping, via the Linear MCP server) |
-| Worktrees | `worktrees.provider` | `claude` (default) · `orca` (terminal-driven, needed for non-Claude CLIs) · `conductor` (experimental guidance) |
-| Runners | `runners.executor` / `.reviewer` | `claude` (model + effort) · `codex` (self-contained prompt file, headless `codex exec`) |
+| Worktrees | `worktrees.provider` | `claude` (default; native Claude or explicit Codex worktrees) · `orca` (visible terminal-driven workers) · `conductor` (experimental guidance) |
+| Runners | `runners.executor` / `.reviewer` | `claude` (model + effort) · `codex` (project skills + narrow stdin prompt to headless `codex exec`) |
+| PR lifecycle | `runners.babysitter` / `.reconciler` | cheap mechanical babysitter · conditional strong reconciler |
 | Second opinion | `runners.adversarial_reviewer` | off by default; a reviewer from another model family, comments only. raw's reviewer keeps the verdict |
-| Evidence | `evidence.ui_screenshot` · `evidence.driver` | gate: `auto` (default) · `required` · `off`. capture: `playwright` (default, MCP or `npx`) · `manual` |
+| Evidence | `evidence.ui_screenshot` · `evidence.driver` | gate: `auto` (default) · `required` · `off`. capture: bounded Playwright CLI (default) · `manual` |
 
 **PRs are always GitHub**, so `ai-review:*` labels and the review policy are identical under every tracker.
 
@@ -108,9 +116,10 @@ Defaults are GitHub Issues + Claude Code worktrees + Claude runners, and if that
 your-repo/
 ├── raw.config.yml                    # gates, commands, labels, bindings
 ├── CLAUDE.md                         # raw section appended (markers, idempotent)
+├── .agents/skills -> ../.claude/skills # Codex compatibility; canonical content is not copied
 ├── .claude/
-│   ├── skills/                      # autopilot, next-task, create-pr, review-pr, babysit-pr, plan-board, configure
-│   ├── agents/                      # auto-executor, auto-babysitter, auto-reviewer
+│   ├── skills/                      # includes next-task dispatcher + single-issue build-issue
+│   ├── agents/                      # executor, cheap babysitter, reconciler, independent reviewer
 │   └── settings.json                # worktree symlink config (Node default; edit for your stack)
 ├── .github/
 │   ├── ISSUE_TEMPLATE/task.md       # board task template
@@ -140,13 +149,15 @@ your-repo/
 | `specs_dir` | `docs/specs` | Planner input tree |
 | `bindings.tdd` / `bindings.verification` | superpowers skills | Which skill fulfills each role — swappable |
 | `autopilot.parallel` | `1` | Concurrent executors (each in its own worktree) |
-| `autopilot.max_fix_cycles` | `3` | Review→fix rounds before `status:blocked` |
+| `autopilot.max_fix_cycles` | `1` | Automated review→fix rounds before unresolved work surfaces |
 | `tracker.provider` | `github` | Where the board lives (`github` \| `linear`) |
 | `tracker.linear.team` / `.states` | unset | Linear team key and raw-status → workflow-state map |
 | `tracker.linear.close_on_merge` | `integration` | Who moves the Linear issue to Done on merge (`integration` = native Linear↔GitHub sync; `manual` = orchestrator transitions it itself) |
 | `worktrees.provider` | `claude` | Isolated workspace provider (`claude` \| `orca` \| `conductor`) |
-| `worktrees.seed_files` | `[]` | Gitignored paths copied into a worker's worktree during preflight — for the `orca`/`conductor` providers, or when a missing path should block. Under `claude`, edit `.worktreeinclude` instead |
+| `worktrees.seed_files` | `[]` | Gitignored paths copied during preflight — for `orca`/`conductor`, an explicit Codex executor under `claude`, or any path whose absence should block. Native Claude worktrees use `.worktreeinclude` instead |
 | `runners.executor` / `runners.reviewer` | `{ runner: claude, model: sonnet, effort: medium }` | Engine per role (`claude` \| `codex`) |
+| `runners.babysitter` | `{ runner: claude, model: sonnet, effort: low }` | Cheap mechanical PR lifecycle polling |
+| `runners.reconciler` | `{ runner: claude, model: opus, effort: medium }` | Conditional batched judgment; missing in old configs uses this fallback |
 | `runners.adversarial_reviewer` | unset | Optional second reviewer from another model family, comments only |
 | `runners.codex_command` | `codex exec` | Headless invocation template for the codex runner |
 | `evidence.ui_screenshot` | `auto` | Screenshot evidence for user-visible work (`auto` \| `required` \| `off`) |
@@ -170,6 +181,9 @@ CI is yours to bring. The workflow only assumes PRs have checks and that the mer
 - upgrades any file you haven't touched since install,
 - skips (and tells you about) any file you've edited, so your customizations are never silently clobbered; pass `--force` if you want the upstream version anyway,
 - always refreshes the managed block in `CLAUDE.md` (marked by `<!-- BEGIN/END:raw-workflow -->`, since that block is never meant to be hand-edited).
+- creates or preserves `.agents/skills` compatibility safely; a real user-owned path is reported
+  and never overwritten. Unix uses a relative symlink; Windows uses a directory junction when
+  available and prints a manual `mklink /J` fallback otherwise.
 
 `--dry-run` shows exactly this plan without touching anything.
 
@@ -178,6 +192,14 @@ CI is yours to bring. The workflow only assumes PRs have checks and that the mer
 An install done before this existed has no `.raw-manifest.json` yet. Run `raw manifest bootstrap` once (baselines current files as "unmodified," so hand-edits made before that point won't be flagged) and `update` works from then on.
 
 Design rationale and edge-case table: [`docs/design.md`](docs/design.md).
+
+## Intended usage validation
+
+These changes target, but do not claim without post-change measurements: materially fewer sessions
+above 150k context (aspirationally below 20%), executor share around 35–45%, near-zero Playwright
+MCP use inside coding executors, and zero Opus reconciliation when no substantive findings exist.
+Compare Claude `/usage` across several representative tasks; the prior baseline was 48% above 150k,
+59% executor, 17% babysitter, 9% Playwright MCP, and 1% reviewer.
 
 ## License
 
