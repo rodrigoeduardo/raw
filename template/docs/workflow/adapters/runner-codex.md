@@ -1,7 +1,7 @@
 # Adapter — runner: codex
 
-Active for any role whose `raw.config.yml` → `runners.<role>.runner` is `codex` — typically
-`adversarial_reviewer` (a second opinion from a different model family), sometimes `executor`.
+Active for any role whose `raw.config.yml` → `runners.<role>.runner` is `codex` — commonly the
+executor or adversarial reviewer, and optionally the conditional reconciler.
 
 **Prerequisite:** `command -v codex`. `/configure` checks before offering it.
 
@@ -12,80 +12,83 @@ runners:
   codex_command: codex exec
 ```
 
-## The core constraint: no skills
+## Project skills are available
 
-A codex worker **cannot read this repo's Claude skills**. Everything a Claude worker would look up —
-board protocol, git conventions, the PR template, the status-line contract — has to be *in the
-prompt*. So the orchestrator writes a **self-contained prompt file** per dispatch, and passes it by
-file (never inline: multi-KB markdown in a shell argument gets mangled).
+Modern Codex discovers project skills under `.agents/skills`. RAW installs
+`.agents/skills -> ../.claude/skills`, leaving `.claude/skills` canonical; this source repository
+uses `.agents/skills -> ../template/.claude/skills`. A Codex worker can therefore invoke RAW skills
+without copied workflow text.
 
-The prompt file contains:
+Do not build giant self-contained prompts. The dispatch should name the skill, one job, and only
+run-specific facts. The worker reads the living skill and adapter docs from the checkout.
 
-1. **The full issue spec** — goal, requirements checklist, expected behavior, test scenarios,
-   technical notes, out of scope, human actions. Inline it; the worker should not need to fetch the
-   tracker to know what to build.
-2. **The standing workflow**, inlined (this is what the skills would have told a Claude worker):
-   > 1. Branch off the fresh default branch as `type/<issue#>-<slug>`.
-   > 2. Write a failing test first, then implement until it passes. Tests ship with the behavior.
-   > 3. Run `<commands.install>`, `<commands.lint>`, `<commands.test_all>` — all green before you
-   >    hand off; fix everything red, including anything you didn't cause.
-   > 4. Commit on the fly, Conventional Commits, atomic, never force-push, never commit to the
-   >    default branch.
-   > 5. Push and open a **draft** PR targeting the default branch, body filled per the PR template
-   >    sections: Summary (with `Closes #N`), Changes, Requirements coverage (each criterion with
-   >    evidence), Testing instructions, Human actions needed, Notes. Mark it ready only when every
-   >    criterion is covered.
-   > 6. [when the evidence gate is active] Run the app with `<commands.dev>`, take the URL it
-   >    prints, drive the flow with Playwright (`npx playwright`), then commit the screenshot as
-   >    `docs/evidence/<issue#>-<slug>.png` and link it from Requirements coverage
-   >    (`![evidence](docs/evidence/<file>.png)`). No `commands.dev`, no URL, or no Playwright →
-   >    stop and report BLOCKED with that reason.
-   > 7. **Do not merge.** Stop once the PR is open and its checks are green (or your fix is pushed
-   >    and the run is pending).
-   > 8. Print exactly one final status line: `DONE pr=#<n> branch=<name>` /
-   >    `BLOCKED issue=#<n> reason=<one line>` / `TOO_BIG issue=#<n>`.
-3. **Run-specific facts** — e.g. "the default branch already contains X from #N — REUSE it, do not
-   reimplement."
+## Execution over stdin
 
-Keep the file in the scratchpad, one per dispatch.
-
-## Execution
-
-**With `worktrees.provider: claude`** — the orchestrator creates the worktree and runs codex headless
-in the background:
+All provider combinations use the installed `.claude/scripts/run-codex.mjs` bridge. It reads the
+narrow prompt from its own stdin (or a one-use input file), starts the configured command with the
+model and effort flags, writes the prompt to `codex exec -`, and closes stdin. This is an executable
+contract covered by the runner matrix tests, not a prompt-delivery convention each caller recreates.
 
 ```bash
-git worktree add <path> -b <type>/<issue#>-<slug> origin/<default-branch>
-cd <path> && <runners.codex_command> --model <model> -c model_reasoning_effort="<effort>" \
-  --prompt-file <prompt-file>     # or the equivalent your codex version accepts
+printf '%s\n' '<narrow prompt>' | node .claude/scripts/run-codex.mjs \
+  --model <model> --effort <effort> -- <runners.codex_command>
 ```
 
-Parse the **trailing status line** from its output; everything else is noise. A non-zero exit or a
-missing status line is a **launch failure** (infrastructure) — relaunch is fine and it is not a
-strike under the two-strikes rule.
+Text after `--` is the configured command argv (`codex exec` by default). Do not rely on an
+undocumented Codex prompt-file option or interpolate prompt text into a shell argument.
 
-**With `worktrees.provider: orca`** — use the terminal flow in `worktrees-orca.md` (create worktree
-without an agent, `terminal create --command "codex …"`, `wait --for tui-idle`, `terminal send
---text "$(cat <prompt-file>)"`).
+### BUILD
+
+The issue is already selected and claimed. A normal prompt is deliberately small:
+
+```text
+Use $build-issue to build the already claimed issue <ID>.
+Do not select or inspect other work. Stop after delivering this issue.
+<run-specific reuse fact, only when present>
+```
+
+`$build-issue` fetches the exact issue, loads targeted implementation context, performs TDD and
+verification, captures bounded CLI evidence when required, finalizes the PR, and stops.
+
+### FIX
+
+Pass the PR number/branch and only confirmed findings or the exact CI/sync reason. Tell Codex to
+follow the FIX boundaries in `.claude/agents/auto-executor.md`, verify, push without force, print
+the expected status line, and stop. It must not rediscover findings or unrelated work.
+
+### Reconciliation
+
+Invoke only when substantive blocking findings exist. Send one batch containing the relevant diff,
+acceptance criteria, findings, and targeted excerpts; point at
+`.claude/agents/auto-reconciler.md`. The worker is read-only and returns confirmed/rebutted/escalated
+classifications. No findings means no invocation.
+
+The reconciliation status contract also permits
+`NEEDS_CONTEXT pr=#<p> reason=<one line>`. That is terminal for this bounded invocation: the caller
+maps it to human escalation and does not launch a second reconciler to repair its own input package.
+
+Parse the trailing status line from output. A non-zero exit or missing status line is a launch
+failure (infrastructure), not an execution strike.
+
+For `worktrees.provider: claude`, use the explicit Git worktree path in `worktrees-claude.md`; the
+Claude Agent tool cannot launch a Codex process. For `worktrees.provider: orca`, use the terminal
+path in `worktrees-orca.md`. Both call the same bridge and neither leaves a persistent prompt
+artifact.
 
 ## As a reviewer
 
-A codex reviewer **prints** its findings and a verdict; it does not touch GitHub state:
+A Codex reviewer prints findings and a verdict; it does not touch GitHub state:
 
-- The **orchestrator** posts the findings as PR comments and, for the primary reviewer role, applies
-  the verdict label. Label authority stays in exactly one place, whatever ran the review.
-- As `adversarial_reviewer`, its findings are comments only — no label, ever. Raw's reviewer owns
-  the verdict; the value here is a **decorrelated** second look, not a second vote.
-- Either way, findings go through reconciliation (`../pr-babysit.md` §3) before becoming work.
+- The orchestrator posts findings and, for the primary reviewer role, applies the verdict label.
+- As `adversarial_reviewer`, findings are comments only; RAW's reviewer owns the verdict.
+- Findings still pass through conditional reconciliation before becoming fix work.
 
-## Gotchas
+## Gotchas and deliberate scope
 
-- **Model/flag rejection**: if the CLI rejects the model or reasoning-effort flag, stop and surface
-  the exact error. Never silently fall back to another model — a run whose model you can't name is
-  not reproducible.
-- **Prompt drift**: the inlined standing workflow is a copy of the docs. When you change
-  `git-conventions.md` or the PR template, update this file too, or codex workers will keep
-  following last month's rules.
-- **Don't half-inline**: a prompt that says "follow docs/workflow/board-protocol.md" to a worker that
-  can't read skills but *can* read files is a coin flip. Either inline it or state the file path
-  explicitly as a read instruction.
+- **Model/flag rejection:** surface the exact error. Never silently fall back to another model.
+- **Skill-link conflict:** if `.agents/skills` is a real user-owned directory or points elsewhere,
+  `raw init/update` preserves it and reports the conflict. Resolve it explicitly before expecting
+  RAW skill discovery.
+- **Custom Codex agents deferred:** this refactor does not mirror Claude agent Markdown into
+  `.codex/agents/*.toml`; their schemas differ. Project skill discovery plus narrow runner prompts
+  provides compatibility without a second agent architecture to maintain.

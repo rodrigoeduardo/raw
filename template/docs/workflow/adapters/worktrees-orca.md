@@ -48,29 +48,49 @@ Forgot `--parent-worktree`? Fix it in place, without disturbing the running agen
 orca worktree set --worktree branch:<name> --parent-worktree path:$PARENT
 ```
 
-## Launch — custom CLI (codex, or a pinned Claude model)
+## Launch — custom CLI
 
 `orca worktree create --agent …` doesn't select a custom model. Create the worktree with no agent,
-then create the terminal with the exact command:
+then use the runner-specific path below.
+
+### Pinned Claude runner
 
 ```bash
 worktree_id=$(orca worktree create --repo id:$REPO_ID --name <issue#>-<slug> \
   --base-branch origin/<integration-branch> --parent-worktree path:$PARENT --json | jq -r '.result.worktree.id')
 
-# The launch command MUST make the agent non-interactive. For claude that is
-# --dangerously-skip-permissions; for codex, its own non-interactive flags.
-#   claude:  claude --model <sonnet|opus> --dangerously-skip-permissions
-#   codex:   codex --model gpt-5.6-codex -c model_reasoning_effort="medium"
-orca terminal create --worktree "id:$worktree_id" --title "<issue#>-<runner>" \
+# The launch command MUST make the agent non-interactive.
+orca terminal create --worktree "id:$worktree_id" --title "<issue#>-claude" \
   --command "claude --model sonnet --dangerously-skip-permissions" --json >/dev/null
 
 # Recover the handle by LISTING — do not trust a single jq path off `create`.
 H=$(orca terminal list --json | jq -r \
-  '.result.terminals[] | select((.worktreePath // "")|test("<name>")) | select((.title // "")|test("Claude Code")) | .handle' | head -1)
+  '.result.terminals[] | select((.worktreePath // "")|test("<name>")) | select(.title == "<issue#>-claude") | .handle' | head -1)
 
 orca terminal wait --terminal "$H" --for tui-idle --timeout-ms 60000 --json >/dev/null
 orca terminal send  --terminal "$H" --text "$(cat <prompt-file>)" --enter --json
 ```
+
+### Codex runner
+
+`orca terminal send --enter` cannot close stdin, so it cannot complete the `codex exec -` prompt.
+Write the narrow prompt from `runner-codex.md` to a temporary file, then start the tested bridge as
+the terminal command. The bridge reads and deletes the file before spawning Codex and closes stdin
+after delivering the prompt.
+
+```bash
+CODEX_PROMPT=$(mktemp)
+# Write the narrow BUILD/FIX/review/reconciliation prompt to $CODEX_PROMPT.
+orca terminal create --worktree "id:$worktree_id" --title "<issue#>-codex" \
+  --command "node .claude/scripts/run-codex.mjs --input-file '$CODEX_PROMPT' --delete-input --model <model> --effort <effort> -- <runners.codex_command>" \
+  --json >/dev/null
+
+H=$(orca terminal list --json | jq -r \
+  '.result.terminals[] | select((.worktreePath // "")|test("<name>")) | select(.title == "<issue#>-codex") | .handle' | head -1)
+```
+
+Do not run `orca terminal send` for this path. A BUILD prompt invokes `$build-issue` for the already
+claimed id and stops; the living workflow stays in project skills rather than the temporary input.
 
 **`--dangerously-skip-permissions` (claude) is not optional on this path.** A bare `claude` boots
 *interactive* and hangs on its first `gh`/tool permission prompt — and `wait --for tui-idle` reports
@@ -84,7 +104,8 @@ at `.result.handle` (it was empty across a whole run). List and filter instead, 
 traps: use `(.title // "")` and `(.worktreePath // "")` — a terminal with a `null` title/path
 otherwise aborts the whole `jq test()` with an error.
 
-`wait --for tui-idle` before `send` is still required: sending into a TUI mid-boot drops the prompt.
+For the pinned Claude path, `wait --for tui-idle` before `send` is still required: sending into a
+TUI mid-boot drops the prompt. The Codex path does not send terminal input.
 
 If the CLI rejects the model or a flag, **stop and surface the exact error** — never silently fall
 back to another model. That is a launch failure (infrastructure), so it doesn't count as a strike
@@ -116,7 +137,8 @@ first run. Prefer, in order:
    after leading whitespace and **reject any line containing a backtick** (the templates are inside
    `` `…` ``), e.g. `grep -E '^[[:space:]]*(⏺ )?(DONE|BLOCKED|TOO_BIG)([[:space:]]|$)' | grep -v '\`'`.
 
-**Reap child worktrees you spawned.** A babysitter's `auto-reviewer` and FIX `auto-executor` leave
+**Reap child worktrees you spawned.** A babysitter's `auto-reviewer`, conditional
+`auto-reconciler`, and FIX `auto-executor` leave
 their worktrees behind — sub-agents deliberately do **not** delete worktrees unasked. The
 orchestrator reaps every child worktree for a PR once that PR merges:
 `orca worktree rm --worktree "name:<name>" --force`. Confirm none linger with `orca worktree list`.

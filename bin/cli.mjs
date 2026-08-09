@@ -5,7 +5,19 @@
 //   npx github:rodrigoeduardo/raw update [target-dir] [--force] [--dry-run]
 //   npx github:rodrigoeduardo/raw manifest bootstrap [target-dir]
 //   npx github:rodrigoeduardo/raw labels
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, appendFileSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  cpSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  readlinkSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join, dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
@@ -17,6 +29,8 @@ const VERSION = JSON.parse(readFileSync(join(PKG_DIR, "package.json"), "utf8")).
 const MARKER_BEGIN = "<!-- BEGIN:raw-workflow -->";
 const MARKER_END = "<!-- END:raw-workflow -->";
 const MANIFEST_FILE = ".raw-manifest.json";
+const CODEX_SKILLS_PATH = join(".agents", "skills");
+const CODEX_SKILLS_UNIX_TARGET = "../.claude/skills";
 
 const WORKFLOW_LABELS = [
   ["status:proposed", "BFD4F2", "Awaiting promotion"],
@@ -89,6 +103,49 @@ function upsertClaudeMdBlock(target, block) {
   return "updated raw section in CLAUDE.md";
 }
 
+function ensureCodexSkillsCompatibility(target, { dryRun = false } = {}) {
+  const dest = join(target, CODEX_SKILLS_PATH);
+  const canonical = resolve(target, ".claude", "skills");
+  let current;
+  try {
+    current = lstatSync(dest);
+  } catch (error) {
+    if (error.code === "ENOTDIR") {
+      return `${CODEX_SKILLS_PATH} (conflict: .agents is not a directory; preserved)`;
+    }
+    if (error.code !== "ENOENT") throw error;
+  }
+
+  if (current) {
+    if (!current.isSymbolicLink()) {
+      return `${CODEX_SKILLS_PATH} (conflict: existing non-link path preserved)`;
+    }
+    const linkTarget = readlinkSync(dest);
+    if (resolve(dirname(dest), linkTarget) === canonical) {
+      return `${CODEX_SKILLS_PATH} compatibility already current`;
+    }
+    return `${CODEX_SKILLS_PATH} (conflict: existing link to ${linkTarget} preserved)`;
+  }
+
+  if (dryRun) return `${CODEX_SKILLS_PATH} compatibility would be created`;
+
+  mkdirSync(dirname(dest), { recursive: true });
+  try {
+    if (process.platform === "win32") {
+      // Directory junctions normally do not require Developer Mode or symlink privileges.
+      symlinkSync(canonical, dest, "junction");
+      return `created ${CODEX_SKILLS_PATH} directory junction -> .claude/skills`;
+    }
+    symlinkSync(CODEX_SKILLS_UNIX_TARGET, dest, "dir");
+    return `created ${CODEX_SKILLS_PATH} -> ${CODEX_SKILLS_UNIX_TARGET}`;
+  } catch (error) {
+    if (process.platform === "win32" && ["EPERM", "EACCES", "UNKNOWN"].includes(error.code)) {
+      return `${CODEX_SKILLS_PATH} not created (Windows junction unavailable; run mklink /J .agents\\skills .claude\\skills)`;
+    }
+    throw error;
+  }
+}
+
 function init(target, { force, labels }) {
   if (!existsSync(target)) {
     console.error(`Target directory does not exist: ${target}`);
@@ -116,14 +173,16 @@ function init(target, { force, labels }) {
     target,
     claudeMdBlock(readFileSync(join(TEMPLATE_DIR, "CLAUDE.md.example"), "utf8")),
   );
+  const codexSkillsResult = ensureCodexSkillsCompatibility(target);
 
   for (const f of copied) console.log(`  + ${f}`);
   for (const f of skipped) console.log(`  = ${f} (exists, skipped${force ? "" : " — use --force to overwrite"})`);
   console.log(`  * ${claudeMdResult}`);
+  console.log(`  * ${codexSkillsResult}`);
   console.log(`  * wrote ${MANIFEST_FILE} (version ${VERSION})`);
   console.log(`
 Installed. Next steps:
-  1. Run /configure in Claude Code — gates, commands, area labels (writes raw.config.yml).
+  1. Run /configure in Claude Code or $configure in Codex — gates, commands, area labels.
   2. Create workflow labels: npx github:rodrigoeduardo/raw labels   (or let /configure do it)
   3. Wire CI for your stack (see examples/ in the raw repo) — the merge gate needs green checks.
   4. Install the bound sub-skills (default: obra/superpowers) or rebind them in raw.config.yml.
@@ -149,6 +208,7 @@ function update(target, { force, dryRun }) {
     process.exit(1);
   }
   if (manifest.version === VERSION) {
+    console.log(`  * ${ensureCodexSkillsCompatibility(target, { dryRun })}`);
     console.log(`Already at raw ${VERSION}. Nothing to update.`);
     return;
   }
@@ -201,6 +261,7 @@ function update(target, { force, dryRun }) {
     ? "CLAUDE.md raw section (dry run, not applied)"
     : upsertClaudeMdBlock(target, claudeMdBlock(readFileSync(join(TEMPLATE_DIR, "CLAUDE.md.example"), "utf8")));
   console.log(`  * ${claudeMdResult}`);
+  console.log(`  * ${ensureCodexSkillsCompatibility(target, { dryRun })}`);
 
   if (!dryRun) {
     saveManifest(target, { version: VERSION, files: nextFiles });
