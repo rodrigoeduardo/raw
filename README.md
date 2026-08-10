@@ -9,11 +9,11 @@ The other moving parts swap one config key at a time: worktree provider, executo
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/raw-workflow-dark.svg">
-    <img alt="raw workflow: autopilot or next-task selects and claims one issue, auto-executor invokes build-issue for targeted TDD and bounded CLI evidence, then an independent reviewer checks the PR. A cheap babysitter handles CI and status; only substantive findings trigger one bounded strong reconciler before a targeted fix." src="docs/assets/raw-workflow-light.svg" width="100%">
+    <img alt="raw workflow: board-scoped autopilot or next-task selects and claims one issue; an isolated auto-executor running Claude or Codex invokes build-issue for targeted TDD, verification, and bounded CLI evidence; an independent reviewer checks the diff, and a cheap per-PR babysitter handles CI, status, and feedback fingerprints. Only substantive blocking findings invoke one read-only reconciler before a targeted fix; merge and deploy remain configurable gates." src="docs/assets/raw-workflow-light.svg" width="100%">
   </picture>
 </p>
 
-The diagram emphasizes context boundaries: solid boxes are normal stages; dashed reconciliation is conditional. Dispatchers hold board context, builders hold one issue, and the independent reviewer remains separate. Source: [`docs/assets/raw-workflow.excalidraw`](docs/assets/raw-workflow.excalidraw).
+The diagram separates board, issue, and PR contexts: solid paths are normal stages; dashed paths are conditional reconciliation and targeted fixes. Dispatchers claim work, one isolated executor handles one issue at a time, and independent review stays separate from the cheap babysitter. Merge and deploy are configurable handoffs. Source: [`docs/assets/raw-workflow.excalidraw`](docs/assets/raw-workflow.excalidraw).
 
 ## Quickstart (2-minute setup)
 

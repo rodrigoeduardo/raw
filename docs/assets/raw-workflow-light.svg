@@ -1,32 +1,47 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 560" width="1240" height="560" font-family="Excalifont, 'Segoe Print', sans-serif">
-  <rect width="1240" height="560" fill="#ffffff"/>
-  <text x="620" y="48" text-anchor="middle" font-size="26" font-weight="700" fill="#212529">RAW: bounded issue execution and conditional reconciliation</text>
-  <g fill="none" stroke="#495057" stroke-width="3" marker-end="url(#arrow)">
-    <path d="M290 160H370"/><path d="M570 160H660"/><path d="M890 160H960"/><path d="M1060 210V360"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 620" width="1440" height="620" font-family="Excalifont, 'Segoe Print', sans-serif">
+  <rect width="1440" height="620" fill="#ffffff"/>
+  <text x="720" y="55" text-anchor="middle" font-size="25" font-weight="700" fill="#212529">RAW: bounded execution, independent review, conditional reconciliation</text>
+  <g fill="none" stroke-width="2" stroke-dasharray="8 6">
+    <rect x="30" y="95" width="240" height="200" rx="18" fill="#f1f8ff" stroke="#1c7ed6"/>
+    <rect x="290" y="95" width="400" height="200" rx="18" fill="#f4fbf5" stroke="#2b8a3e"/>
+    <rect x="710" y="95" width="440" height="345" rx="18" fill="#fbf9ff" stroke="#5f3dc4"/>
   </g>
-  <g fill="none" stroke="#7950f2" stroke-width="3" stroke-dasharray="9 7" marker-end="url(#purpleArrow)">
-    <path d="M960 420H860"/><path d="M600 420H470V210"/>
+  <g text-anchor="middle" font-size="16" font-weight="700">
+    <text x="150" y="125" fill="#1864ab">BOARD CONTEXT</text>
+    <text x="490" y="125" fill="#2b8a3e">ISSUE CONTEXT · ISOLATED WORKER</text>
+    <text x="930" y="125" fill="#5f3dc4">PR CONTEXT · INDEPENDENT LIFECYCLE</text>
   </g>
   <defs>
     <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#495057"/></marker>
     <marker id="purpleArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#7950f2"/></marker>
   </defs>
+  <g fill="none" stroke="#495057" stroke-width="3" marker-end="url(#arrow)">
+    <path d="M245 195H315"/><path d="M485 195H515"/><path d="M665 195H735"/><path d="M915 195H955"/><path d="M1125 195H1190"/><path d="M1280 245V310"/>
+  </g>
+  <g fill="none" stroke="#7950f2" stroke-width="3" stroke-dasharray="9 7" marker-end="url(#purpleArrow)">
+    <path d="M1040 245V310"/><path d="M800 350H400V255"/>
+  </g>
   <g stroke-width="3">
-    <rect x="50" y="110" width="240" height="100" rx="18" fill="#d0ebff" stroke="#1c7ed6"/>
-    <rect x="370" y="110" width="200" height="100" rx="18" fill="#a5d8ff" stroke="#1971c2"/>
-    <rect x="660" y="110" width="230" height="100" rx="18" fill="#b2f2bb" stroke="#2b8a3e"/>
-    <rect x="960" y="110" width="200" height="100" rx="18" fill="#e5dbff" stroke="#5f3dc4"/>
-    <rect x="960" y="370" width="220" height="100" rx="18" fill="#c5f6fa" stroke="#0b7285"/>
-    <rect x="600" y="370" width="260" height="100" rx="18" fill="#f3d9fa" stroke="#9c36b5" stroke-dasharray="9 7"/>
+    <rect x="55" y="145" width="190" height="100" rx="18" fill="#d0ebff" stroke="#1c7ed6"/>
+    <rect x="315" y="135" width="170" height="120" rx="18" fill="#b2f2bb" stroke="#2b8a3e"/>
+    <rect x="515" y="135" width="150" height="120" rx="18" fill="#d3f9d8" stroke="#2b8a3e"/>
+    <rect x="735" y="145" width="180" height="100" rx="18" fill="#e5dbff" stroke="#5f3dc4"/>
+    <rect x="955" y="145" width="170" height="100" rx="18" fill="#c5f6fa" stroke="#0b7285"/>
+    <rect x="800" y="310" width="260" height="95" rx="18" fill="#f3d9fa" stroke="#9c36b5" stroke-dasharray="9 7"/>
+    <rect x="1190" y="145" width="180" height="100" rx="18" fill="#ffe8cc" stroke="#e67700"/>
+    <rect x="1190" y="310" width="180" height="95" rx="18" fill="#fff3bf" stroke="#e67700"/>
   </g>
-  <g text-anchor="middle" font-size="19" font-weight="700">
-    <text x="170" y="150" fill="#1864ab">AUTOPILOT / NEXT-TASK<tspan x="170" dy="27" font-weight="400">select + claim</tspan></text>
-    <text x="470" y="150" fill="#1864ab">AUTO-EXECUTOR<tspan x="470" dy="27" font-weight="400">one issue · 50 turns</tspan></text>
-    <text x="775" y="150" fill="#2b8a3e">/BUILD-ISSUE<tspan x="775" dy="27" font-weight="400">TDD + CLI evidence</tspan></text>
-    <text x="1060" y="150" fill="#5f3dc4">PR + REVIEWER<tspan x="1060" dy="27" font-weight="400">independent gate</tspan></text>
-    <text x="1070" y="410" fill="#0b7285">CHEAP BABYSITTER<tspan x="1070" dy="27" font-weight="400">CI · status · fingerprint</tspan></text>
-    <text x="730" y="410" fill="#9c36b5">STRONG RECONCILER<tspan x="730" dy="27" font-weight="400">conditional batch → FIX</tspan></text>
+  <g text-anchor="middle" font-size="16">
+    <text x="150" y="180" fill="#1864ab" font-weight="700">AUTOPILOT /<tspan x="150" dy="20" font-weight="700">NEXT-TASK</tspan><tspan x="150" dy="20" font-weight="400">select + claim</tspan></text>
+    <text x="400" y="170" fill="#2b8a3e" font-weight="700">AUTO-EXECUTOR<tspan x="400" dy="20" font-weight="400">BUILD / FIX</tspan><tspan x="400" dy="20" font-weight="400">Claude or</tspan><tspan x="400" dy="20" font-weight="400">Codex</tspan></text>
+    <text x="590" y="170" fill="#2b8a3e" font-weight="700">BUILD-ISSUE<tspan x="590" dy="20" font-weight="400">TDD + verify</tspan><tspan x="590" dy="20" font-weight="400">bounded CLI</tspan><tspan x="590" dy="20" font-weight="400">evidence</tspan></text>
+    <text x="825" y="180" fill="#5f3dc4" font-weight="700">AUTO-REVIEWER<tspan x="825" dy="20" font-weight="400">independent diff</tspan><tspan x="825" dy="20" font-weight="400">+ evidence</tspan></text>
+    <text x="1040" y="180" fill="#0b7285" font-weight="700">AUTO-BABYSITTER<tspan x="1040" dy="20" font-weight="400">CI + status</tspan><tspan x="1040" dy="20" font-weight="400">fingerprint</tspan></text>
+    <text x="930" y="342" fill="#9c36b5" font-weight="700">AUTO-RECONCILER<tspan x="930" dy="20" font-weight="400">read-only</tspan><tspan x="930" dy="20" font-weight="400">one findings batch</tspan></text>
+    <text x="1280" y="180" fill="#a15800" font-weight="700">MERGE GATE<tspan x="1280" dy="20" font-weight="400">human or auto</tspan><tspan x="1280" dy="20" font-weight="400">merge-ready</tspan></text>
+    <text x="1280" y="352" fill="#a15800" font-weight="700">DEPLOY GATE<tspan x="1280" dy="20" font-weight="400">human or auto</tspan></text>
   </g>
-  <text x="910" y="401" text-anchor="middle" font-size="15" fill="#7950f2">findings only</text>
-  <text x="620" y="526" text-anchor="middle" font-size="17" fill="#495057">No findings → no reconciler. One issue → one executor invocation. Independent review stays intact.</text>
+  <text x="1102" y="270" text-anchor="middle" font-size="16" fill="#7950f2">blocking<tspan x="1102" dy="20">findings</tspan></text>
+  <text x="663" y="383" text-anchor="middle" font-size="16" fill="#7950f2">confirmed → targeted FIX</text>
+  <text x="720" y="570" text-anchor="middle" font-size="16" fill="#495057">solid = normal stage   ·   dashed = conditional path   ·   one issue = one executor invocation   ·   independent review stays intact</text>
 </svg>
