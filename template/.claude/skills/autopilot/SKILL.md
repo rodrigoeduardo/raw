@@ -21,9 +21,10 @@ Read `raw.config.yml` (missing file/keys = documented defaults). You care about:
   `human` → you stop each PR at "approved + green", label state speaks for itself, and your run
   summary lists PRs ready for a human merge.
 - `gates.deploy` (`human` default) + `commands.deploy`: whether/how you deploy after merges.
-- `autopilot.parallel` (default 1), `autopilot.max_fix_cycles` (default 3).
+- `autopilot.parallel` (default 1), `autopilot.max_fix_cycles` (default 1).
 - `tracker.provider` (default `github`), `worktrees.provider` (default `claude`), `runners.*`
-  (executor/reviewer default claude/sonnet, babysitter claude/opus), `evidence.ui_screenshot`
+  (executor/reviewer default claude/sonnet, babysitter claude/sonnet-low, conditional reconciler
+  claude/opus-medium), `evidence.ui_screenshot`
   (default `auto`) + `evidence.driver` (default `playwright`) + `commands.dev`.
 
 **Adapters.** Every board operation below is written in GitHub terms because that is the default.
@@ -48,9 +49,9 @@ substantive code checks — they only cut redundant re-checking.
   restart mid-run. If you do find yourself pulling PR detail in here, that is the signal something
   belongs in the babysitter instead.
 - **Workers:** you dispatch `auto-executor` (mode BUILD) and `auto-babysitter`; the babysitter
-  dispatches `auto-reviewer` and its own `auto-executor` (mode FIX). See `.claude/agents/`. The
-  babysitter is the one that needs a capable model — it decides whether a review finding is real
-  or a confident hallucination.
+  dispatches `auto-reviewer`, its own `auto-executor` (mode FIX), and `auto-reconciler` only for a
+  substantive finding batch. See `.claude/agents/`. The cheap babysitter handles mechanical state;
+  the conditional reconciler owns the strong-model judgment.
 - **Do not** run this alongside a `/loop /next-task` session or a scheduled dispatcher (they share
   the claim-comment backstop and will collide). One autonomous dispatcher at a time.
 
@@ -124,8 +125,9 @@ STOP marker convention: an open issue whose title is exactly `AUTO-STOP`. Its pr
 
 6. **Drive the PR — dispatch a babysitter.** One `auto-babysitter` per PR. It runs
    `docs/workflow/pr-babysit.md` end to end in its own context: scope check, trivial-skip decision,
-   CI triage, feedback fingerprint, finding reconciliation, and the fix loop (dispatching its own
-   `auto-executor` in mode FIX, or fixing inline under the ceiling in the `babysit-pr` skill). It
+   CI triage, feedback fingerprint, conditional batched reconciliation, and the fix loop
+   (dispatching its own `auto-executor` in mode FIX, or fixing inline under the ceiling in the
+   `babysit-pr` skill). Strong reconciliation runs only when substantive blocking findings exist. It
    stops at the merge-ready checklist and reports.
 
    Pass it the PR number and any run-specific fact it can't read off the board — most often

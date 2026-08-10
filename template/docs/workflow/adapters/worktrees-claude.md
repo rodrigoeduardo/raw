@@ -1,20 +1,62 @@
 # Adapter — worktrees: claude (default)
 
-Active when `raw.config.yml` → `worktrees.provider` is `claude` (or unset). Workers run as Claude
-Code sub-agents in an isolated git worktree created by the Agent tool itself.
+Active when `raw.config.yml` → `worktrees.provider` is `claude` (or unset). Claude runners use a
+Claude Code sub-agent worktree. Codex runners use the explicit Git worktree launch below because the
+Agent tool cannot start a non-Claude process.
 
-## How a worker is launched
+## How a Claude runner is launched
 
-Dispatch the agent (`auto-executor` / `auto-reviewer`) with `isolation: worktree` — it is already in
+Dispatch the agent (`auto-executor` / `auto-babysitter` / `auto-reviewer` / conditional
+`auto-reconciler`) with `isolation: worktree` — it is already in
 their frontmatter, so the orchestrator just dispatches. The harness creates the worktree, runs the
 agent inside it, and returns the agent's final message.
 
 - **Result comes back in-band**: the agent's last line is its status line
   (`DONE pr=#<n> branch=<name>`, `BLOCKED …`, `TOO_BIG …`, `APPROVED …`, `CHANGES_REQUESTED …`).
   The orchestrator branches on that string; nothing needs parsing out of a terminal.
-- **Model/effort** come from `runners.executor` / `runners.reviewer` (agent frontmatter is the
+- **Model/effort** come from the matching `runners.*` role (agent frontmatter is the
   fallback) — see `runner-claude.md`.
 - **Cleanup** is the harness's: an unchanged worktree is removed automatically.
+
+## How a Codex runner is launched
+
+Create an isolated worktree explicitly, then run the tested stdin bridge from that checkout. This
+is the launch path for the supported `worktrees.provider: claude` + `runner: codex` combination; do
+not try to dispatch Codex through the Claude Agent tool.
+
+```bash
+INTEGRATION=<raw.config.yml git.integration_branch, else repository default>
+BRANCH=<unique role/issue branch>
+WORKER_ROOT=$(mktemp -d)
+WORKTREE="$WORKER_ROOT/worktree"
+PROMPT="$WORKER_ROOT/prompt.txt"
+LOG="$WORKER_ROOT/codex.log"
+
+git fetch origin
+git worktree add -b "$BRANCH" "$WORKTREE" "origin/$INTEGRATION"
+
+# Write only the narrow runner-codex.md prompt to $PROMPT with the caller's file-writing tool.
+# The bridge consumes and deletes it before Codex starts, then closes Codex stdin after the prompt.
+node "$WORKTREE/.claude/scripts/run-codex.mjs" \
+  --cwd "$WORKTREE" --input-file "$PROMPT" --delete-input \
+  --model <model> --effort <effort> -- <runners.codex_command> \
+  >"$LOG" 2>&1 &
+CODEX_PID=$!
+```
+
+For a FIX worker, check out the PR branch rather than creating a new BUILD branch. For a read-only
+reviewer or reconciler, use a detached worktree at the exact PR head SHA. Every worker still gets a
+separate checkout.
+
+An explicit Git worktree does not receive Claude Code's `.worktreeinclude` copies. If a Codex
+executor needs gitignored files, list them in `worktrees.seed_files`; its normal executor preflight
+copies them before build/evidence work and deletes them before reporting. `/configure` must use
+that setting for this runner combination even though the provider name remains `claude`.
+
+Wait on `CODEX_PID` through the caller's background-task mechanism, then read the trailing status
+line from `LOG`. A non-zero exit or missing status line is a launch failure, not an execution
+strike. Remove the worktree only after a read-only run or after a mutating worker has pushed and
+`git status --short` proves no work would be lost.
 
 ## Shared dependencies
 
@@ -62,8 +104,9 @@ It exists for the two things `.worktreeinclude` can't do:
 - **Blocking.** A path that is missing at the source stops the worker with a named reason instead of
   surfacing as an unexplained dev-server crash three steps later.
 
-Under `provider: claude`, prefer `.worktreeinclude` and leave `seed_files` empty — configuring both
-for the same path just copies it twice.
+Under `provider: claude` with Claude runners, prefer `.worktreeinclude` and leave `seed_files`
+empty. An explicit Codex worktree bypasses that Claude Code mechanism, so a Codex executor uses
+`seed_files` for required paths instead.
 
 **Preflight procedure** (step 2 of `auto-executor`; empty or unset list = skip entirely):
 

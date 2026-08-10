@@ -15,7 +15,8 @@ Development is driven by an agentic workflow on GitHub Issues.
 
 - `/configure` — set up gates, labels, commands (writes `raw.config.yml`).
 - `/plan-board` — planner: decompose specs into proposed issues.
-- `/next-task` — builder: claim next ready issue, implement with TDD, deliver PR.
+- `/next-task` — dispatcher: select and claim one ready issue, then delegate to `/build-issue`.
+- `/build-issue <issue>` — builder: implement one already claimed issue with TDD, deliver PR, stop.
 - `/create-pr` — finalize a branch into a template-compliant PR (draft-first).
 - `/review-pr` — AI review of a PR, on request.
 - `/babysit-pr` — keep one PR green: CI triage, finding reconciliation, fix, merge-ready.

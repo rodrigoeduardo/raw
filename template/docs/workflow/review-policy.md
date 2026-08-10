@@ -21,7 +21,10 @@ Builders treat `ai-review:changes-requested` exactly like human change-requests:
 
 A review finding — from raw's reviewer, a review bot, or a human — is a claim about the code, and claims can be confidently wrong. Before a finding turns into work, someone opens the code and confirms it reproduces:
 
-- The PR's **babysitter** does this (`pr-babysit.md` §3) — an `auto-babysitter` under `/autopilot`, or you running `/babysit-pr`. Only confirmed findings become work; findings that don't reproduce get a reply with the evidence and are recorded as **rebutted**. A later delta re-review treats rebutted findings as closed unless new evidence appears.
+- The PR's cheap **babysitter** handles mechanical CI/status/fingerprint work. Only when substantive
+  blocking findings exist does it dispatch one bounded `runners.reconciler` invocation for the
+  whole batch (`pr-babysit.md` §3). Confirmed findings become work; findings that do not reproduce
+  are rebutted with evidence. No findings means no strong-model invocation.
 - Working by hand, you are that step: reproduce before you fix. Changing correct code to satisfy an invalid comment is a regression that passes review.
 
 Ambiguous, conflicting, or scope-expanding feedback is neither fixed nor dismissed — it's escalated to a human with the competing options, and the thread stays open.
@@ -42,7 +45,7 @@ Configured by `raw.config.yml` → `evidence.ui_screenshot`:
 
 When the gate is active:
 
-1. The **builder** captures the artifact per `evidence.driver` — default `playwright`, whose full procedure is [`adapters/evidence-playwright.md`](adapters/evidence-playwright.md): run the app (`commands.dev`), drive the actual flow at 1280×800, and **commit** the image to `docs/evidence/<issue#>-<slug>.png` on the task branch, linked from "Requirements coverage". It is committed rather than attached because GitHub has no attachment API — `gh` cannot upload an image, so a committed blob is the only artifact a reviewer can reliably open.
+1. The **builder** captures the artifact per `evidence.driver` — default `playwright`, whose full procedure is [`adapters/evidence-playwright.md`](adapters/evidence-playwright.md): run the app (`commands.dev`), use the bounded Playwright CLI path at 1280×800, and **commit** the image to `docs/evidence/<issue#>-<slug>.png` on the task branch, linked from "Requirements coverage". Playwright MCP is not a default dependency of the coding executor.
 2. The **reviewer** opens that file and checks it shows the claimed behavior, *before* setting a verdict. That second look is the whole point — "a screenshot exists" is not the gate, "someone besides the worker looked" is.
 3. No artifact on a gated PR → `ai-review:changes-requested`. Do not approve on the promise of one.
 4. `docs/evidence/*` is **expected output** on a gated issue, never scope creep — the scope check exempts it.

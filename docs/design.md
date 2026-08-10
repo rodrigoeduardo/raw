@@ -10,14 +10,20 @@ AI agents are good at building small, well-specified tasks and bad at deciding w
 
 1. **The tracker state is the machine source of truth.** No visual board tooling is part of the workflow — every state transition is a write to the tracker, auditable in the item's timeline, and re-derivable by a crashed/restarted agent. On the default tracker (GitHub Issues) that state is labels.
 2. **Gates are configuration, not doctrine.** Three gates — promote (`proposed → ready`), merge, deploy — each set to `human` or `auto` in `raw.config.yml`. Defaults are all-human; turning a gate to `auto` is an explicit, versioned decision in the target repo.
-3. **Skills are small and self-contained.** `/plan-board`, `/next-task`, `/create-pr`, `/review-pr` each work when invoked directly by a human. The orchestrator (`/autopilot`) composes them via sub-agents; orchestrator-only plumbing (status lines, delta re-reviews) lives in the agent definitions, never in the skills.
+3. **Selection and execution have one boundary.** `/next-task` selects and claims; `/build-issue`
+   implements exactly one explicit issue. Autopilot claims before dispatching an executor, so BUILD
+   invokes `/build-issue` directly and never repeats board selection inside coding context.
 4. **Specs drive planning; issues drive building; the diff drives review.** The planner reads `specs_dir` and proposes; builders implement exactly the issue's Requirements checklist; reviewers verify claims against the actual diff, never the PR body's assertions.
 5. **Concurrency by claim comment.** Claiming = label swap + timestamped comment. Any second dispatcher (loop, schedule, autopilot) skips live claims; stale claims (>24h, no pushes) are taken over with a comment. No locks, no external state.
 6. **Everything repo-specific is config.** Commands (install/lint/test/deploy/dev), area labels, specs dir, sub-skill bindings (which TDD/verification skill to invoke) and provider choices (tracker, worktrees, runners) live in `raw.config.yml`, edited by hand or via the `/configure` interview.
 7. **Scheduling is a re-derived frontier, not a plan.** Dependencies (`Depends on #N`, or native relations on trackers that have them) form a DAG; **waves** — `max(wave of blockers) + 1` — are computed and printed for humans to read, but dispatch always picks from the *currently claimable frontier*, recomputed from the tracker on every pass. A batch plan computed at run start is a snapshot, and snapshots go stale the moment a human edits the board or a run crashes mid-wave.
 8. **A ticket that fails twice is a spec defect.** Two execution failures on one issue means the issue body is ambiguous, not that the model was too small. Relaunch is forbidden at that point: the issue goes back to `proposed` with a `needs rewrite:` comment and the planner rewrites it. Launch/infra failures don't count — they aren't evidence about the spec.
-9. **Findings are input, not verdicts.** Before a review finding becomes work, someone opens the code and confirms it reproduces. Under `/autopilot` that someone is the orchestrator (a bounded read-only step, see below); by hand it's you. Forwarding a confidently-wrong finding costs a full implementation round fixing a bug that doesn't exist, and can turn correct code into a regression that passes review.
-10. **Evidence over assertion for user-visible work.** A green test proves the logic ran, not that anything rendered. When an issue is user-visible, "done" requires a screenshot of the real app driving the real flow — and, critically, that *someone other than the worker looked at it* (the reviewer does, before the verdict). Capture is a documented default (Playwright, MCP or CLI) rather than an improvisation, and the artifact is **committed** to the task branch, because GitHub has no attachment API and an artifact nobody can open is not evidence. Inert for headless repos; when capture is impossible the gate blocks rather than degrading, since a silent skip is the exact failure it exists to catch.
+9. **Findings are input, not verdicts.** A cheap babysitter handles CI/status/fingerprints. Only a
+   substantive blocking batch invokes the bounded strong reconciler, once; confirmed findings
+   become work, rebutted ones do not. Independent review remains unchanged.
+10. **Evidence over assertion for user-visible work.** A green test proves logic ran, not that
+   anything rendered. The builder uses bounded Playwright CLI capture by default and commits the
+   artifact for an independent reviewer. Playwright MCP is not part of the high-context coding loop.
 11. **Providers are adapters, not branches in the logic.** Tracker, worktree provider and runner are swappable via `raw.config.yml` + one doc each under `docs/workflow/adapters/`. The decision logic in the skills never changes with the provider — only the spelling of the operations does. Defaults (github / claude worktrees / claude runners) keep the visible, zero-cost path inline in the skills.
 
 ## Roles
@@ -25,35 +31,35 @@ AI agents are good at building small, well-specified tasks and bad at deciding w
 | Role | Where | Does |
 |---|---|---|
 | Planner | `/plan-board` skill | Specs → draft → (approval) → proposed issues |
-| Builder | `/next-task` skill | Claim → TDD build → draft PR → `/create-pr` → in-review |
+| Dispatcher | `/next-task` skill | Service obligations → select/validate → claim → `/build-issue` |
+| Builder | `/build-issue` skill | Exact claimed issue → targeted TDD build → bounded evidence → PR → stop |
 | Reviewer | `/review-pr` skill | Diff vs acceptance criteria → comments + verdict label |
 | Adversarial reviewer (opt-in) | `runners.adversarial_reviewer` | Second review from another model family → comments only, never a verdict |
 | PR babysitter | `/babysit-pr` skill | One PR: CI triage, finding reconciliation, fix, merge-ready |
+| Reconciler | `runners.reconciler` / `auto-reconciler` | Conditional read-only judgment over one batch of substantive findings |
 | Orchestrator | `/autopilot` skill | Claim issues, dispatch executors and babysitters, merge gate, deploy step |
-| Workers | `auto-executor`, `auto-babysitter`, `auto-reviewer` agents | Isolated single-job wrappers around the skills above |
+| Workers | executor, babysitter, reconciler, reviewer agents | Isolated, bounded wrappers around the skills and roles above |
 
 The per-PR procedure lives in `docs/workflow/pr-babysit.md` and is shared: `/babysit-pr` is its
 entry point, invoked either by a human on one PR or by an `auto-babysitter` that `/autopilot`
 dispatches per PR. One procedure, two callers, no drift.
 
-### Two context lifetimes, two sessions
+### Bounded context lifetimes
 
-Finding reconciliation (core idea 9) **reads code** — it verifies a specific claim before a fix
-round is spent on it. So do CI triage and feedback triage. That work is unavoidable, but it is
-**PR-scoped**: once the PR merges, none of it matters again.
+Implementation is issue-scoped, PR lifecycle state is PR-scoped, and reconciliation is an even
+smaller conditional slice. Board scheduling never enters the executor; browser MCP state never
+enters its default evidence path; strong reasoning receives only diff, criteria, findings, and
+targeted excerpts.
 
 The orchestrator's own state is **board-scoped**: the dependency graph, the claimable frontier,
 what merged this run. It has to survive the whole drain.
 
-Running both in one session means the disposable content accumulates in the durable one, and a long
-board eventually forces a restart mid-run. So the per-PR work happens in a dispatched
-`auto-babysitter` whose context dies with the PR, and the orchestrator gets back a status line.
-That keeps it a cheap bookkeeper again — labels, dispatch, checklists, all state re-derived from the
-tracker, and it never reads a diff or a CI log.
+The per-PR work happens in a cheap `auto-babysitter` whose context dies with the PR, while the
+orchestrator keeps board state. The bounded `auto-reconciler` exists only when substantive findings
+require judgment. It is not a permanently running tier.
 
-The judgement requirement moves with the work: `runners.babysitter` defaults to a stronger model
-than the executor and reviewer, because telling a real finding from a confident hallucination is the
-call the whole fix loop hangs on.
+The judgment requirement moves with the work: babysitter defaults to sonnet/low; reconciler defaults
+to opus/medium and is skipped entirely when no substantive finding exists.
 
 Merging stays with the orchestrator, and that is the one thing the split can't relax: each merge
 changes the default branch the frontier is re-derived from, so parallel babysitters merging on their
@@ -90,7 +96,7 @@ Escape hatches at every stage: `status:blocked` (+ precise comment), `TOO_BIG` (
 | UI feature "done" but invisible | Evidence gate: screenshot from the real app, checked by the reviewer before the verdict |
 | Evidence gate active, `commands.dev` unset | Builder reports `BLOCKED` — the gate is never silently skipped |
 | Dev server starts but prints no URL in 60s | `BLOCKED: dev server never printed a URL` (usually a missing env var, not a code problem) |
-| No Playwright MCP server and no `npx playwright` | `BLOCKED: no playwright driver available` — or set `evidence.driver: manual` deliberately |
+| No `npx playwright` | `BLOCKED: no playwright driver available` — or set `evidence.driver: manual` deliberately |
 | Screenshot can't be "attached" to a PR | GitHub has no attachment API; the artifact is committed to the task branch as `docs/evidence/<issue#>-<slug>.png` and linked from Requirements coverage |
 | Human follow-ups in a merged PR | Harvested from "Human actions needed" into the run summary — surfaced, never auto-done |
 
@@ -111,9 +117,10 @@ deliberately **not** adopted, and the reasons matter more than the choices:
   month, and the orchestrator is the session with the least context about the code.
 - **Baked-in never-re-ask defaults.** Right for a personal skill, wrong for a reusable product:
   raw's generalization of "decide once, then stop asking" is `raw.config.yml` + `/configure`.
-- **The ticket as the *only* spec.** Fully self-contained prompts are required only where forced —
-  the codex runner, which can't read skills. Claude workers keep reading the repo's living docs:
-  cheaper prompts, and no copy of the conventions to age.
+- **Duplicated Codex prompts.** Rejected. Codex discovers RAW through `.agents/skills`, a
+  compatibility link to canonical `.claude/skills`. BUILD receives a narrow stdin prompt invoking
+  `$build-issue`; project `.codex/agents/*.toml` parity is deliberately deferred because Claude and
+  Codex agent schemas differ.
 - **Project-policy ticket requirements** (i18n, LGPD, and similar). Those belong in the target repo's
   `docs/specs/business-rules.md`, which the planner already reads — not in a workflow package.
 
@@ -125,8 +132,15 @@ Installs are plain copied files, not a managed dependency, so raw tracks drift i
 - `raw update` recomputes hashes, compares each file to the manifest baseline, and only overwrites files that are unchanged since install — anything a human edited is reported and skipped (`--force` to overwrite anyway). `CLAUDE.md`'s managed block is always refreshed; it's marked, never meant to be hand-edited.
 - Notification is pull-based, not pushed: `raw-update-check.yml` runs on a schedule in the *target* repo, diffs its manifest version against raw's `main`, and opens an `auto:hold` issue if behind. No hosted registry, no telemetry back to this repo.
 - Pre-manifest installs bootstrap via `raw manifest bootstrap`, which baselines whatever's on disk as "unmodified" — any edits made before that point are invisible to future diffs.
+- `raw init/update` creates `.agents/skills` compatibility idempotently and never overwrites a
+  user-owned directory or unrelated link. Unix uses a relative symlink; Windows prefers a junction.
 
 ## History
+
+**2026-08-09 — bounded execution and Codex project skills.** Split dispatcher selection from the
+single `/build-issue` implementation path, capped executor turns, moved evidence to bounded CLI by
+default, made babysitting cheap with conditional batched reconciliation, reduced automatic fixes to
+one cycle, and exposed canonical skills to Codex without copies.
 
 **2026-07-27 — worktree env seeding, template CI.** Two defects from a real autopilot run.
 

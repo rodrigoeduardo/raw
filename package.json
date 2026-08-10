@@ -1,10 +1,13 @@
 {
   "name": "raw-workflow",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Installable agentic workflow for Claude Code, driven by GitHub Issues — plan, build, review, merge, deploy with configurable human gates",
   "type": "module",
   "bin": {
     "raw": "bin/cli.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
   },
   "files": [
     "bin",

@@ -52,12 +52,13 @@ bindings:
 autopilot:
   # Max executors running concurrently (1 = sequential).
   parallel: 1
-  # Review→fix rounds per PR before the issue is marked status:blocked.
-  max_fix_cycles: 3
+  # One automated review→fix round per PR. More unresolved work surfaces to a
+  # human instead of recursively amplifying executor/reviewer context and cost.
+  max_fix_cycles: 1
 
 # ---------------------------------------------------------------------------
-# Pluggability. Every default below is raw's original behavior — leaving this
-# whole block out changes nothing. Each provider has an adapter doc under
+# Pluggability. Every default below is the current shipped behavior — leaving
+# this whole block out uses these values. Each provider has an adapter doc under
 # docs/workflow/adapters/; skills read the doc for the provider you select.
 # ---------------------------------------------------------------------------
 
@@ -90,9 +91,10 @@ worktrees:
   # all, without which commands.dev won't start and the evidence gate below
   # can't be satisfied.
   #
-  # Under provider: claude this is already handled by `.worktreeinclude` at the
-  # repo root, which Claude Code applies at worktree creation — edit that file,
-  # and leave this empty. Set this only to cover what .worktreeinclude can't:
+  # Under provider: claude with Claude runners this is already handled by
+  # `.worktreeinclude` at the repo root. An explicit Codex runner bypasses that
+  # mechanism and uses seed_files. Set this to cover what .worktreeinclude can't:
+  #   - a Codex executor under the claude provider;
   #   - the orca and conductor providers, which don't run that code path;
   #   - a path whose absence should BLOCK the worker with a named reason rather
   #     than fail later as an unexplained dev-server crash.
@@ -108,10 +110,11 @@ worktrees:
 runners:
   executor: { runner: claude, model: sonnet, effort: medium } # runner: claude | codex
   reviewer: { runner: claude, model: sonnet, effort: medium }
-  # Drives one PR to merge-ready. Opus by default because it decides whether a
-  # review finding actually reproduces — the judgement call the whole fix loop
-  # hangs on. Downgrading this saves little and costs wrong fix rounds.
-  babysitter: { runner: claude, model: opus, effort: medium }
+  # Mechanical per-PR lifecycle: CI/status/fingerprints/labels/mergeability.
+  babysitter: { runner: claude, model: sonnet, effort: low }
+  # Conditional, read-only judgment for a batch of substantive blocking findings.
+  # Missing in an older config means this default; no findings means no invocation.
+  reconciler: { runner: claude, model: opus, effort: medium }
   # Optional second reviewer from another model family, for decorrelated errors.
   # Its findings are comments only — raw's reviewer still owns the verdict label.
   # e.g. { runner: codex, model: gpt-5.6-codex, effort: medium }
@@ -127,8 +130,7 @@ evidence:
   # required — always required
   # off      — never required
   ui_screenshot: auto
-  # How the screenshot is captured. playwright (default) follows
-  # docs/workflow/adapters/evidence-playwright.md — the Playwright MCP server
-  # when the session has it, `npx playwright` otherwise. manual = the worker
-  # improvises (escape hatch for stacks Playwright can't drive).
+  # How the screenshot is captured. playwright (default) follows the bounded
+  # `npx playwright` path in docs/workflow/adapters/evidence-playwright.md.
+  # manual = the worker improvises (escape hatch for other stacks).
   driver: playwright # playwright | manual

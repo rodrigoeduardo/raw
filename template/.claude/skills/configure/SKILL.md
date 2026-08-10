@@ -79,25 +79,30 @@ execute. Read the adapter doc for whatever gets selected before writing anything
      worker. Propose only paths that are gitignored *and* present (`git status --ignored --short`,
      or `git check-ignore -v .env.local .env …`) — never one that is tracked, never one that isn't
      there. Then write them to whichever mechanism the provider uses:
-     - `claude` → add them to `.worktreeinclude` and leave `seed_files` empty; Claude Code applies
-       that file at worktree creation. The installed default already lists `.env.local` and
-       `.env.*.local`, so often there is nothing to do.
+     - `claude` with a Claude executor → add them to `.worktreeinclude` and leave `seed_files`
+       empty; Claude Code applies that file at worktree creation. The installed default already
+       lists `.env.local` and `.env.*.local`, so often there is nothing to do.
+     - `claude` with a Codex executor → `worktrees.seed_files`; its explicit Git worktree does not
+       pass through Claude Code's `.worktreeinclude` mechanism.
      - `orca` / `conductor` → `worktrees.seed_files`; those providers never read `.worktreeinclude`.
      - Either provider, when a missing path should stop the worker with a named reason rather than
        fail later as a dead dev server → `worktrees.seed_files`.
-3. **Runners** (`runners.executor`, `runners.reviewer`, `runners.babysitter`,
+3. **Runners** (`runners.executor`, `runners.reviewer`, `runners.babysitter`, `runners.reconciler`,
    `runners.adversarial_reviewer`).
    - Prerequisite for `codex`: `command -v codex`. Missing → only `claude` is offered.
    - Per role ask: runner, model, effort (`low|medium|high|xhigh|max`).
-   - `babysitter` defaults to a **stronger** model than the other two. Say why if they ask to
-     downgrade it: it decides whether each review finding actually reproduces before a fix round is
-     paid for, and a wrong call there costs a full executor round changing correct code.
+   - If the executor changes between Claude and Codex after the gitignored-file question, re-check
+     that those paths use the mechanism required by the selected combination above.
+   - `babysitter` defaults to sonnet/low for mechanical CI/status/fingerprint work.
+     `reconciler` defaults to opus/medium and is invoked only when substantive blocking findings
+     need judgment; batch all findings from one round into one call.
    - `adversarial_reviewer` is opt-in and off by default; explain it in one line — a second reviewer
      from another model family posts findings as PR comments for decorrelated errors, and raw's
      reviewer still owns the verdict label.
    - **Sync claude runner settings into the agent definitions**: after writing the config, update
-     `.claude/agents/auto-executor.md`, `.claude/agents/auto-reviewer.md` and
-     `.claude/agents/auto-babysitter.md` frontmatter (`model:`, `effort:`) to match `runners.*`. The
+     `.claude/agents/auto-executor.md`, `.claude/agents/auto-reviewer.md`,
+     `.claude/agents/auto-babysitter.md`, and `.claude/agents/auto-reconciler.md` frontmatter
+     (`model:`, `effort:`) to match `runners.*`. The
      frontmatter is the fallback when nothing overrides it; a config that disagrees with it is a
      silent lie.
 4. **Evidence gate** (`evidence.ui_screenshot`: `auto` | `required` | `off`).
@@ -109,10 +114,11 @@ execute. Read the adapter doc for whatever gets selected before writing anything
      Recommend `playwright` — it's the documented, repeatable path
      (`docs/workflow/adapters/evidence-playwright.md`); `manual` means the worker improvises, and is
      for stacks Playwright can't drive.
-     Prerequisite check before recommending it: is the **Playwright MCP server** reachable in this
-     session, else does `npx playwright --version` work? Neither → say so plainly: the gate will
-     BLOCK gated issues until one exists. Let the human choose anyway (installing Playwright later
-     is normal) or pick `manual`; never silently downgrade the setting for them.
+     Prerequisite check before recommending it: run `npx playwright --version` in the target repo.
+     Failure → say plainly that every gated issue will BLOCK until the CLI is available. Let the
+     human choose it anyway (installing Playwright later is normal) or pick `manual`; never silently
+     downgrade the setting. Browser-tool availability elsewhere in the session is not sufficient,
+     because executors use this bounded CLI contract.
 
 ## Rules
 

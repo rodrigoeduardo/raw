@@ -72,7 +72,8 @@ A third, post-merge gate (`gates.deploy`) governs deploys — see the `autopilot
 1. **Propose** — planner creates issue with `status:proposed` + `area:*`, following the issue template.
 2. **Promote** — per the promote gate, the issue is relabeled `status:ready` (possibly after editing).
 3. **Claim** — a builder takes the oldest claimable `status:ready` issue. Claimable = all `Depends on #N` issues closed AND no `human-action-needed` label (i.e. the "Human actions" section is "None" or fully done). Claiming = swap label to `status:in-progress` + comment: `Claimed by <session-id> at <ISO timestamp>`.
-4. **Build** — branch `type/<issue#>-<slug>`, TDD, commits on the fly (git-conventions.md), draft PR after first push.
+4. **Build** — `/build-issue <issue>` handles only the claimed issue: branch
+   `type/<issue#>-<slug>`, TDD, targeted context, commits on the fly, draft PR after first push.
 5. **Deliver** — `/create-pr` finalizes: PR marked ready with `Closes #N`, issue relabeled `status:in-review`.
 6. **Merge** — per the merge gate. Merge auto-closes the issue (done).
 
@@ -114,3 +115,7 @@ The same protocol runs in several modes; the claim comment is the concurrency ba
 4. **Scheduled agent**: a routine follows this protocol, max 2 tasks per run.
 
 Never run more than one dispatcher (modes 2–4) in the same time window.
+
+Dispatchers select and claim; `/build-issue` implements. Autopilot sends an already claimed issue
+to `auto-executor`, which invokes `/build-issue` directly. The builder never lists the board,
+chooses another issue, or loops back through `/next-task`.
